@@ -13,6 +13,7 @@ namespace SkinLive
         public const string Manifest="Avatar.model3.json", Texture="Avatar.1024/texture_00.png";
         const string ItemSetting="SkinLiveOBS.item.txt";
         const string LegacyRig="86ED31C45489742F436CB6BF00749771C59834D03B81BF6050DD1F28039C0BD6";
+        const string HeldRig110="B291210DF1906F326E0D50F790F2418A79987768D3D985B8BCD822BF63332C81";
         static readonly string[] Assets={"Avatar.moc3",Manifest,"Avatar.cdi3.json","Motions/Jump.motion3.json","Motions/Swing.motion3.json","ASSET-LICENSE.txt"};
         static Stream Asset(string name)
         {
@@ -68,7 +69,7 @@ namespace SkinLive
             using(SHA256 hash=SHA256.Create()) using(Stream actual=File.OpenRead(moc)) {
                 string digest=BitConverter.ToString(hash.ComputeHash(actual)).Replace("-","");
                 if(digest!=LegacyRig && digest!=RigHash(hash,"Avatar.moc3")) {
-                    if(digest!=RigHash(hash,"RightHand.moc3"))
+                    if(digest!=HeldRig110 && digest!=RigHash(hash,"RightHand.moc3"))
                         throw new InvalidDataException("请选择由本工具导出的方块人模型。");
                     string setting=Path.Combine(parent,ItemSetting);
                     if(File.Exists(setting)) {

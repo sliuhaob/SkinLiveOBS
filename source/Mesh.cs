@@ -22,22 +22,33 @@ namespace SkinLive
             new Limb(5,2),new Limb(-1.9f,12),new Limb(1.9f,12)};
         public double Lift;
         public const double JumpPeak=1.25220335;
+        const double AngleIndex=65536/(2*Math.PI);
+        static float IndexedSine(double index)
+        {
+            // Vanilla animation indexes one of 65536 angles before evaluating the limb rotation.
+            return (float)Math.Sin(((long)index & 65535L)/AngleIndex);
+        }
+        static float GameSin(float angle){return IndexedSine(angle*AngleIndex);}
+        static float GameCos(float angle){return IndexedSine(angle*AngleIndex+16384);}
         public static Pose Standard(double height,double swing,double age,bool holding=false)
         {
             Pose p=new Pose(); p.Lift=height;
             Limb arm=p.Joints[2], other=p.Joints[3];
-            double twist=Math.Sin(Math.Sqrt(swing)*Math.PI*2)*.2;
-            p.Joints[1].Ry=(float)twist;
-            arm.X=(float)(-Math.Cos(twist)*5); arm.Z=(float)(Math.Sin(twist)*5);
+            const float pi=(float)Math.PI;
+            float progress=(float)swing, ticks=(float)age;
+            float twist=GameSin((float)Math.Sqrt(progress)*(2*pi))*.2f;
+            p.Joints[1].Ry=twist;
+            arm.X=-GameCos(twist)*5; arm.Z=GameSin(twist)*5;
             other.X=-arm.X; other.Z=-arm.Z;
-            double strike=Math.Sin((1-Math.Pow(1-swing,4))*Math.PI);
-            double reach=Math.Sin(swing*Math.PI);
+            float remaining=1-progress; remaining*=remaining;
+            float strike=GameSin((1-remaining*remaining)*pi);
+            float reach=GameSin(progress*pi);
             // Standing third-person ITEM pose pitches the holding arm forward by 18 degrees.
-            arm.Rx=(float)((holding?-Math.PI/10:0)-strike*1.2-.525*reach);
-            arm.Ry=(float)(3*twist); other.Ry=(float)twist; other.Rx=(float)twist;
-            double idleRoll=.05+.05*Math.Cos(age*.09), idlePitch=.05*Math.Sin(age*.067);
-            arm.Rz=(float)(-.4*reach+idleRoll); other.Rz=(float)-idleRoll;
-            arm.Rx+=(float)idlePitch; other.Rx-=(float)idlePitch;
+            arm.Rx=(holding?-pi/10:0)-(strike*1.2f+reach*.7f*.75f);
+            arm.Ry=twist+2*twist; other.Ry=twist; other.Rx=twist;
+            float idleRoll=.05f+GameCos(ticks*.09f)*.05f, idlePitch=GameSin(ticks*.067f)*.05f;
+            arm.Rz=-.4f*reach+idleRoll; other.Rz=-idleRoll;
+            arm.Rx+=idlePitch; other.Rx-=idlePitch;
             return p;
         }
     }
@@ -56,7 +67,8 @@ namespace SkinLive
         static readonly int[][] Faces={new[]{0,1,3,2},new[]{4,0,2,6},new[]{4,5,1,0},
             new[]{5,4,6,7},new[]{1,5,7,3},new[]{2,3,7,6}};
         public static readonly string[] FaceNames={"Front","Right","Top","Back","Left","Bottom"};
-        const double Yaw=.23562, Tilt=.105, Zoom=11.55;
+        const double Yaw=.23562, Tilt=.105;
+        internal const double Zoom=10.4;
         static readonly double cy=Math.Cos(Yaw), sy=Math.Sin(Yaw), ct=Math.Cos(Tilt), st=Math.Sin(Tilt);
         internal struct Transform
         {
@@ -68,7 +80,7 @@ namespace SkinLive
                 double c=x*cy+b*sy,d=-x*sy+b*cy;
                 double xx=p.X+c*cz-a*sz, yy=p.Y+c*sz+a*cz-lift*16, zz=p.Z+d;
                 double depth=-Mesh.sy*xx-Mesh.cy*zz;
-                return new Vec(224+Zoom*(Mesh.cy*xx-Mesh.sy*zz),345+Zoom*(ct*yy+st*depth),ct*depth-st*yy);
+                return new Vec(224+Zoom*(Mesh.cy*xx-Mesh.sy*zz),375+Zoom*(ct*yy+st*depth),ct*depth-st*yy);
             }
         }
         public static Face[] CreateFaces()
@@ -121,7 +133,7 @@ namespace SkinLive
                     id==SkinMap.Mouth?"MouthInterior":SkinMap.Parts[id/12].Name+((id%12)<6?"Base":"Wear")+FaceNames[id%6];
                 rows[id]=new StringBuilder(string.Join("\t",new[]{name,r.X.ToString(),r.Y.ToString(),r.Width.ToString(),r.Height.ToString()}));
             }
-            SortedSet<double> keys=SwingKeys();
+            SortedSet<double> keys=SwingKeys(holding);
             foreach(double attack in keys) for(int jump=0;jump<=1;jump++) for(int mouth=0;mouth<=1;mouth++) {
                 Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding),mouth,holding);
                 var sorted=(Face[])faces.Clone();Array.Sort(sorted,Compare);
@@ -137,12 +149,18 @@ namespace SkinLive
             }
         }
         public static int Compare(Face a,Face b){int c=a.Depth.CompareTo(b.Depth);return c!=0?c:a.Cell.CompareTo(b.Cell);}
-        static SortedSet<double> SwingKeys()
+        static SortedSet<double> SwingKeys(bool holding)
         {
             // Densely sample the rapid turn at the start. Include all six game-tick
             // boundaries as exact keys for players using the exported Live2D asset.
             var keys=new SortedSet<double>();
-            for(int i=0;i<=48;i++)keys.Add((i/48.0)*(i/48.0));
+            // The tool tip travels farther than the hand. Cubic spacing resolves
+            // the square-root turn at strike onset while keeping ParamSwing linear in time.
+            int steps=holding?160:48;
+            for(int i=0;i<=steps;i++) {
+                double phase=i/(double)steps;
+                keys.Add(holding?phase*phase*phase:phase*phase);
+            }
             for(int i=0;i<=6;i++)keys.Add(i/6.0);
             return keys;
         }

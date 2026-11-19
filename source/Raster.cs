@@ -33,7 +33,7 @@ namespace SkinLive
         public Bitmap CopyAtlas(){return SkinMap.ToBitmap(texture,SkinMap.Size,SkinMap.Size);}
         public void Draw(Pose p,double mouth)
         {
-            LiftPixels=11.55*16*p.Lift;
+            LiftPixels=Mesh.Zoom*16*p.Lift;
             if(texture==null)return;
             Array.Clear(pixels,0,pixels.Length);
             for(int i=0;i<depth.Length;i++)depth[i]=float.MinValue;

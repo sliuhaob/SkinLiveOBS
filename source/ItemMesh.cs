@@ -82,6 +82,9 @@ namespace SkinLive
 
         struct Grip
         {
+            const double DisplayScale = .85;
+            static readonly double roll = 55 * Math.PI / 180;
+            static readonly double rollCos = Math.Cos(roll), rollSin = Math.Sin(roll);
             readonly Mesh.Transform transform;
             readonly Limb arm;
             readonly double lift;
@@ -93,14 +96,20 @@ namespace SkinLive
             }
             public Vec Point(double u, double v, double thickness)
             {
-                // Sprite handle runs from lower left to upper right. The grip is
-                // inside the fist. U and V span the item and N spans its thickness.
-                const double scale = .71;
-                u = (u - 4.5) * scale; v = (v - 12.5) * scale; thickness *= scale;
-                return transform.Project(arm,
-                    -1.45 - .934 * u + .212 * v + .287 * thickness,
-                     9.00 + .341 * u + .767 * v + .545 * thickness,
-                    -1.85 - .105 * u + .606 * v - .788 * thickness, lift);
+                // Vanilla generated item: center the 16x16 sprite, with image V down.
+                double x = (u - 8) * DisplayScale;
+                double y = (8 - v) * DisplayScale;
+                double z = thickness * DisplayScale;
+
+                // handheld.json thirdperson_righthand in model pixels:
+                // translate(0, 4, .5) * rotateY(-90) * rotateZ(55).
+                double itemX = -z;
+                double itemY = 4 + rollSin * x + rollCos * y;
+                double itemZ = .5 + rollCos * x - rollSin * y;
+
+                // Adult right hand after translateToHand:
+                // rotateX(-90) * rotateY(180) * translate(1, 2, -10).
+                return transform.Project(arm, -(1 + itemX), 10 - itemZ, -(2 + itemY), lift);
             }
         }
 

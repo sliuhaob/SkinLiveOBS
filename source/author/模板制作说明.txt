@@ -14,7 +14,7 @@ OBS 窗口按同一套几何和动作公式绘制。导出的 Cubism 3.3 空手�
 如要修改后重新烘焙模板，可用 Windows PowerShell 5.1 运行本目录的 bake.ps1。
 参数 SkinPng 指向用于生成图集和静态预览的皮肤，Psd2LiveCheckout 指向下述固定提交的本地源代码，
 KotlinHome 指向 Kotlin/JVM 编译器目录，Output 指向保存新构建素材的目录。需要 java 命令。
-输出包含两套 .moc3 和对应的 .rig、示例纹理 texture_00.png 和静态图 preview.png。
+输出包含两套 .moc3 和对应的 .rig、示例纹理 texture_00.png、静态图 preview.png 和头部朝向图 head-tracking.png。
 将 avatar.moc3 复制到 source/template/Avatar.moc3 和 Models/Avatar/Avatar.moc3。
 将 right-hand.moc3 复制到 source/template/RightHand.moc3，再运行 source/build.cmd。
 构建通用模板只需要皮肤。木制物品的像素在用户选择物品时写入图集。

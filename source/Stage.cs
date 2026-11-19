@@ -109,18 +109,48 @@ namespace SkinLive
 
     internal sealed class OutputWindow : Form
     {
+        const int WmSysCommand = 0x0112, ScMinimize = 0xF020;
+        const int WsExTransparent = 0x20, WsExLayered = 0x80000;
         private readonly Raster raster;
+        private FormWindowState lastVisibleState = FormWindowState.Normal;
         public bool Bust;
+        public bool DesktopHidden
+        {
+            get { return Opacity == 0; }
+            set { Opacity = value ? 0.0 : 1.0; }
+        }
+        protected override CreateParams CreateParams
+        {
+            get {
+                CreateParams parameters = base.CreateParams;
+                if (DesktopHidden) parameters.ExStyle |= WsExLayered | WsExTransparent;
+                return parameters;
+            }
+        }
+        protected override bool ShowWithoutActivation { get { return true; } }
         public OutputWindow(Raster raster, Icon icon)
         {
             this.raster = raster;
             Text = "方块皮肤 · OBS 输出";
             Icon = icon;
+            MinimizeBox = false;
             StartPosition = FormStartPosition.WindowsDefaultLocation;
             ClientSize = new Size(Raster.Width, Raster.Height);
             MinimumSize = new Size(160, 160);
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WmSysCommand && (m.WParam.ToInt64() & 0xFFF0) == ScMinimize) return;
+            base.WndProc(ref m);
+        }
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (Disposing || IsDisposed) return;
+            if (WindowState == FormWindowState.Minimized) WindowState = lastVisibleState;
+            else lastVisibleState = WindowState;
         }
         public void SetBackdrop(bool blue)
         {

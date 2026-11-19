@@ -69,7 +69,7 @@ namespace SkinLive
         static byte[] Download(string url, HandItem item, bool api)
         {
             var request = (HttpWebRequest)WebRequest.Create(url);
-            request.UserAgent = "SkinLiveOBS/1.1";
+            request.UserAgent = "SkinLiveOBS/" + typeof(VanillaItems).Assembly.GetName().Version.ToString(2);
             request.Accept = api ? "application/vnd.github+json" : "image/png";
             request.Timeout = request.ReadWriteTimeout = 15000;
             using (var response = request.GetResponse())

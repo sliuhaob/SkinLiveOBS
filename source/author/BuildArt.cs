@@ -34,10 +34,37 @@ namespace SkinLive
                 CheckPoint(faces[first+8].V[0],project.Project(arm,-1.425,18.97055367,-4.33008587,pose.Lift));
             }
         }
+        public static void WriteGazePreview(string png,string destination)
+        {
+            bool slim;
+            double[] lookX={-1,0,1,0}, lookY={0,0,0,1};
+            string[] labels={"看向左侧","正视","看向右侧","低头"};
+            const int card=212;
+            using(Bitmap atlas=SkinMap.ConvertPng(png,0,out slim))
+            using(Raster raster=new Raster())
+            using(Bitmap sheet=new Bitmap(card*labels.Length,238))
+            using(Graphics g=Graphics.FromImage(sheet))
+            using(var pale=new SolidBrush(Color.FromArgb(237,241,231)))
+            using(var green=new SolidBrush(Color.FromArgb(224,235,228)))
+            using(var ink=new SolidBrush(Color.FromArgb(34,61,55)))
+            using(var font=new Font("Microsoft YaHei UI",17,FontStyle.Bold,GraphicsUnit.Pixel)) {
+                raster.SetAtlas(atlas);
+                g.InterpolationMode=InterpolationMode.NearestNeighbor;g.PixelOffsetMode=PixelOffsetMode.Half;
+                for(int i=0;i<labels.Length;i++) {
+                    int left=i*card;
+                    g.FillRectangle(i%2==0?green:pale,left,0,card,sheet.Height);
+                    g.DrawString(labels[i],font,ink,left+12,9);
+                    raster.Draw(Pose.Standard(0,0,0,false,lookX[i],lookY[i]),0);
+                    g.DrawImage(raster.Image,new Rectangle(left,36,card,202),new Rectangle(124,263,201,192),GraphicsUnit.Pixel);
+                }
+                sheet.Save(destination,ImageFormat.Png);
+            }
+        }
         public static void Write(string png,string dest)
         {
             CheckRightHand();
             Directory.CreateDirectory(dest);
+            WriteGazePreview(png,Path.Combine(dest,"head-tracking.png"));
             Mesh.WriteKeyShapes(Path.Combine(dest,"avatar.rig"),false);
             Mesh.WriteKeyShapes(Path.Combine(dest,"right-hand.rig"),true);
             bool slim;

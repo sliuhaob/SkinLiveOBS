@@ -12,7 +12,8 @@ namespace SkinLive
     internal sealed class Preferences
     {
         public int Gate = -48;
-        public bool Keys = true, Bust = true, Blue;
+        public bool Keys = true, Bust = true, Blue, DesktopHidden = true;
+        public LookMode Look = LookMode.Auto;
         public string LastSkin = "";
         public string ItemId;
         public int ArmLayout;
@@ -42,6 +43,11 @@ namespace SkinLive
                         case "keys": prefs.Keys = value == "1"; break;
                         case "bust": prefs.Bust = value == "1"; break;
                         case "blue": prefs.Blue = value == "1"; break;
+                        case "desktopHidden": prefs.DesktopHidden = value == "1"; break;
+                        case "look":
+                            LookMode mode;
+                            if (Enum.TryParse(value, out mode) && Enum.IsDefined(typeof(LookMode), mode)) prefs.Look = mode;
+                            break;
                         case "device": prefs.Device = value; break;
                         case "skin": prefs.LastSkin = value; break;
                         case "rightHand": prefs.ItemId = value; break;
@@ -62,7 +68,7 @@ namespace SkinLive
                 string temp = path + ".tmp";
                 File.WriteAllLines(temp, new string[] { "gate=" + Gate, "keys=" + (Keys ? "1" : "0"),
                     "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout,
-                    "rightHand=" + ItemId },
+                    "rightHand=" + ItemId, "look=" + Look, "desktopHidden=" + (DesktopHidden ? "1" : "0") },
                     new UTF8Encoding(false));
                 if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
             }
@@ -78,6 +84,7 @@ namespace SkinLive
         private readonly Motion motion = new Motion();
         private readonly Raster raster = new Raster();
         private readonly GameInput gameInput = new GameInput();
+        private readonly HeadTracking tracking = new HeadTracking();
         private readonly Microphone microphone = new Microphone();
         private readonly Timer tick = new Timer();
         private readonly Font uiFont = new Font("Microsoft YaHei UI", 9f);
@@ -88,8 +95,8 @@ namespace SkinLive
         private Preview preview;
         private OutputWindow output;
         private Button outputButton;
-        private ComboBox deviceBox, shotBox, backgroundBox;
-        private CheckBox micOn, keysOn;
+        private ComboBox deviceBox, shotBox, backgroundBox, lookBox;
+        private CheckBox micOn, keysOn, hideOutput;
         private TrackBar gate;
         private Label gateLabel, status;
         private LevelMeter level;
@@ -168,7 +175,18 @@ namespace SkinLive
             outputButton.Anchor = AnchorStyles.Right;
             outputButton.Margin = new Padding(0, 0, 0, 0);
             outputButton.Click += delegate { ToggleOutput(); };
-            root.Controls.Add(outputButton, 1, 0);
+            var outputActions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2,
+                RowCount = 1, Margin = Padding.Empty };
+            outputActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            outputActions.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            outputActions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            hideOutput = Toggle("桌面隐形");
+            hideOutput.AccessibleName = "直播输出窗口在桌面隐形并穿透鼠标";
+            tip.SetToolTip(hideOutput, "保留直播窗口供 WGC 窗口采集。取消勾选即可在桌面查看同一窗口。");
+            hideOutput.CheckedChanged += delegate { if (ready && !syncing) ApplyOutputVisibility(); };
+            outputActions.Controls.Add(hideOutput, 0, 0);
+            outputActions.Controls.Add(outputButton, 1, 0);
+            root.Controls.Add(outputActions, 1, 0);
 
             TableLayoutPanel scene = new TableLayoutPanel {
                 Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Margin = new Padding(0, 0, 12, 0)
@@ -269,6 +287,13 @@ namespace SkinLive
             keysOn.CheckedChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
             Row(table, keysOn, 29);
             Row(table, LabelFor("空格  跳跃     /     鼠标左键  挥动右手", uiFont, Theme.Muted), 23);
+            var lookRow = Pair(64);
+            lookBox = Picker("头部跟随模式");
+            lookBox.Items.AddRange(new object[] { "自动（桌面 / FPS）", "桌面鼠标", "FPS 鼠标", "关闭" });
+            lookBox.SelectedIndexChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
+            lookRow.Controls.Add(LabelFor("头部跟随", uiFont, Theme.Muted), 0, 0);
+            lookRow.Controls.Add(lookBox, 1, 0); Row(table, lookRow, 35);
+            tip.SetToolTip(lookBox, "桌面跟随指针位置。FPS 根据鼠标移动方向转头，松手后逐渐回正。");
             Divider(table);
 
             Row(table, LabelFor("直播画面", sectionFont, Theme.Ink), 30);
@@ -296,6 +321,8 @@ namespace SkinLive
         private void PopulateSavedSettings()
         {
             keysOn.Checked = prefs.Keys;
+            lookBox.SelectedIndex = (int)prefs.Look;
+            hideOutput.Checked = prefs.DesktopHidden;
             gate.Value = prefs.Gate;
             UpdateGate();
             shotBox.SelectedIndex = prefs.Bust ? 0 : 1;
@@ -355,18 +382,42 @@ namespace SkinLive
         }
         private void ApplyGameInput()
         {
+            LookMode mode = (LookMode)lookBox.SelectedIndex;
             try
             {
-                gameInput.SetEnabled(Handle, keysOn.Checked);
+                gameInput.Configure(Handle, keysOn.Checked, mode == LookMode.Auto || mode == LookMode.Fps);
+                if (prefs.Keys != keysOn.Checked) motion.ClearQueue();
                 prefs.Keys = keysOn.Checked;
-                motion.ClearQueue();
+                tracking.SetMode(mode); prefs.Look = mode;
             }
             catch (System.ComponentModel.Win32Exception ex)
             {
                 syncing = true;
-                try { keysOn.Checked = false; } finally { syncing = false; }
-                prefs.Keys = false;
-                Message("后台输入未启用 · " + ex.Message, true);
+                try {
+                    keysOn.Checked = prefs.Keys = gameInput.ActionsEnabled;
+                    lookBox.SelectedIndex = (int)(prefs.Look = tracking.Mode);
+                } finally { syncing = false; }
+                Message("后台输入设置未生效 · " + ex.Message, true);
+            }
+        }
+        private void ApplyOutputVisibility()
+        {
+            bool hidden = hideOutput.Checked;
+            try {
+                if (output != null) {
+                    output.DesktopHidden = hidden;
+                    output.Invalidate();
+                    Message(hidden ? "输出窗口已在桌面隐形 · 可用 Windows 图形捕获采集" : "输出窗口已在桌面显示", false);
+                }
+                prefs.DesktopHidden = hidden;
+            } catch (System.ComponentModel.Win32Exception ex) {
+                if (output != null) {
+                    try { output.DesktopHidden = prefs.DesktopHidden; }
+                    catch (System.ComponentModel.Win32Exception) { output.Close(); }
+                }
+                syncing = true;
+                try { hideOutput.Checked = prefs.DesktopHidden; } finally { syncing = false; }
+                Message("切换桌面显示失败 · " + ex.Message, true);
             }
         }
         private void ToggleOutput()
@@ -376,9 +427,18 @@ namespace SkinLive
             if (prefs.Bust) output.ClientSize = new Size(448, 452);
             output.SetBackdrop(prefs.Blue);
             output.FormClosed += delegate { output = null; outputButton.Text = "打开直播窗口"; };
-            // Independent window so minimizing the controller leaves the capture surface available.
-            output.Show();
+            // A separate, unowned window remains available when the controller is minimized.
+            try {
+                output.DesktopHidden = prefs.DesktopHidden;
+                output.Show();
+            } catch (System.ComponentModel.Win32Exception ex) {
+                OutputWindow failed = output; output = null;
+                if (failed != null) failed.Dispose();
+                Message("打开直播窗口失败 · " + ex.Message + " 可取消「桌面隐形」后重开。", true);
+                return;
+            }
             outputButton.Text = "关闭直播窗口";
+            Message(prefs.DesktopHidden ? "直播窗口已打开 · 桌面隐形，可取消勾选查看" : "直播窗口已打开", false);
         }
         protected override void OnShown(EventArgs e)
         {
@@ -400,7 +460,9 @@ namespace SkinLive
         {
             if (m.Msg == GameInput.WmInput && ready)
             {
-                Gesture gesture = gameInput.Read(m.LParam);
+                int dx, dy;
+                Gesture gesture = gameInput.Read(m.LParam, out dx, out dy);
+                if (dx != 0 || dy != 0) tracking.MoveMouse(dx, dy, Now);
                 // The control panel handles its own buttons and preview input locally.
                 // Windows continues delivering the original click/keypress to the game.
                 if (gesture != Gesture.None && keysOn.Checked)
@@ -433,9 +495,19 @@ namespace SkinLive
             bool previewVisible = WindowState != FormWindowState.Minimized;
             bool outputVisible = output != null && output.WindowState != FormWindowState.Minimized;
             if (!previewVisible && !outputVisible) return;
-            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20,equipped!=VanillaItems.Empty),motion.Mouth);
+            Point cursor = Point.Empty;
+            Rectangle display = Rectangle.Empty;
+            if (tracking.Mode == LookMode.Auto || tracking.Mode == LookMode.Desktop) {
+                cursor = Cursor.Position;
+                display = Screen.FromPoint(cursor).Bounds;
+            }
+            tracking.Update(now, cursor, display);
+            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20,equipped!=VanillaItems.Empty,tracking.X,tracking.Y),motion.Mouth);
             if (previewVisible) preview.Invalidate();
-            if (outputVisible) output.Invalidate();
+            if (outputVisible) {
+                output.Invalidate();
+                if (output.DesktopHidden) output.Update();
+            }
         }
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
@@ -443,7 +515,7 @@ namespace SkinLive
             if (e.Cancel) return;
             tick.Stop();
             ready = false;
-            try { gameInput.SetEnabled(IntPtr.Zero, false); } catch (System.ComponentModel.Win32Exception) { }
+            try { gameInput.Configure(IntPtr.Zero, false, false); } catch (System.ComponentModel.Win32Exception) { }
             if (output != null) output.Close();
             microphone.Stop();
             prefs.Save();

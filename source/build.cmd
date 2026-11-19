@@ -9,7 +9,7 @@ if not exist "%SKIN_CSC%" set "SKIN_CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30
   /resource:template\RightHand.moc3,SkinLive.RightHand.moc3 ^
   /resource:template\Motions\Jump.motion3.json,SkinLive.Motions.Jump.motion3.json /resource:template\Motions\Swing.motion3.json,SkinLive.Motions.Swing.motion3.json ^
   /resource:"..\ASSET-LICENSE.txt",SkinLive.ASSET-LICENSE.txt ^
-  App.cs Input.cs Motion.cs SkinMap.cs ItemMesh.cs VanillaItems.cs Mesh.cs Raster.cs ModelFiles.cs Stage.cs SkinControls.cs ItemControls.cs Studio.cs
+  App.cs Input.cs Motion.cs HeadTracking.cs SkinMap.cs ItemMesh.cs VanillaItems.cs Mesh.cs Raster.cs ModelFiles.cs Stage.cs SkinControls.cs ItemControls.cs Studio.cs
 set "SKIN_RESULT=%ERRORLEVEL%"
 popd
 exit /b %SKIN_RESULT%

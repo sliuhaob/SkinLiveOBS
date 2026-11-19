@@ -30,9 +30,12 @@ namespace SkinLive
         }
         static float GameSin(float angle){return IndexedSine(angle*AngleIndex);}
         static float GameCos(float angle){return IndexedSine(angle*AngleIndex+16384);}
-        public static Pose Standard(double height,double swing,double age,bool holding=false)
+        public static Pose Standard(double height,double swing,double age,bool holding=false,double lookX=0,double lookY=0)
         {
             Pose p=new Pose(); p.Lift=height;
+            Limb head=p.Joints[0];
+            head.Ry=(float)(-.40*lookX); head.Rx=(float)(.34*lookY);
+            head.X=(float)(.45*lookX);
             Limb arm=p.Joints[2], other=p.Joints[3];
             const float pi=(float)Math.PI;
             float progress=(float)swing, ticks=(float)age;

@@ -14,8 +14,9 @@ namespace SkinLive
     {
         public const int WmInput = 0x00ff;
         private const uint InputSink = 0x0100, Remove = 1, RidInput = 0x10000003;
-        private bool enabled, spaceDown;
-        public bool SpaceHeld {get{return enabled && spaceDown;}}
+        private bool actionsEnabled, mouseRegistered, readMovement, spaceDown;
+        public bool SpaceHeld {get{return actionsEnabled && spaceDown;}}
+        public bool ActionsEnabled {get{return actionsEnabled;}}
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Device { public ushort Page, Usage; public uint Flags; public IntPtr Target; }
@@ -24,9 +25,12 @@ namespace SkinLive
         [StructLayout(LayoutKind.Explicit, Size = 24)]
         private struct Body
         {
+            [FieldOffset(0)] public ushort MouseFlags;
             [FieldOffset(2)] public ushort KeyFlags;
             [FieldOffset(4)] public ushort MouseButtons;
             [FieldOffset(6)] public ushort VirtualKey;
+            [FieldOffset(12)] public int MouseX;
+            [FieldOffset(16)] public int MouseY;
         }
         [StructLayout(LayoutKind.Sequential)]
         private struct Packet { public Header Header; public Body Data; }
@@ -39,28 +43,35 @@ namespace SkinLive
         private static readonly uint HeaderSize = (uint)Marshal.SizeOf(typeof(Header));
         private static readonly uint PacketSize = (uint)Marshal.SizeOf(typeof(Packet));
 
-        public void SetEnabled(IntPtr window, bool on)
+        private static Device Registration(ushort usage, bool on, IntPtr window)
         {
-            if (!on && !enabled) return;
-            uint flags = on ? InputSink : Remove;
-            IntPtr target = on ? window : IntPtr.Zero;
-            Device[] devices = {
-                new Device { Page = 1, Usage = 6, Flags = flags, Target = target },
-                new Device { Page = 1, Usage = 2, Flags = flags, Target = target }
-            };
-            if (!RegisterRawInputDevices(devices, 2, DeviceSize)) throw new Win32Exception(Marshal.GetLastWin32Error());
-            enabled = on;
-            spaceDown = false;
+            return new Device { Page = 1, Usage = usage, Flags = on ? InputSink : Remove,
+                Target = on ? window : IntPtr.Zero };
         }
-        public Gesture Read(IntPtr handle)
+        public void Configure(IntPtr window, bool actions, bool movement)
         {
-            if (!enabled) return Gesture.None;
+            bool mouseNeeded = actions || movement;
+            var changes = new List<Device>(2);
+            if (actions != actionsEnabled) changes.Add(Registration(6, actions, window));
+            if (mouseNeeded != mouseRegistered) changes.Add(Registration(2, mouseNeeded, window));
+            if (changes.Count != 0 && !RegisterRawInputDevices(changes.ToArray(), (uint)changes.Count, DeviceSize))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            if (actionsEnabled != actions) spaceDown = false;
+            actionsEnabled = actions; mouseRegistered = mouseNeeded; readMovement = movement;
+        }
+        public Gesture Read(IntPtr handle, out int dx, out int dy)
+        {
+            dx = dy = 0;
+            if (!mouseRegistered && !actionsEnabled) return Gesture.None;
             Packet p;
             uint size = PacketSize;
             uint copied = GetRawInputData(handle, RidInput, out p, ref size, HeaderSize);
             if (copied == uint.MaxValue || copied < HeaderSize + 8) return Gesture.None;
-            if (p.Header.Type == 0 && (p.Data.MouseButtons & 1) != 0) return Gesture.Punch;
-            if (p.Header.Type == 1 && p.Data.VirtualKey == 0x20)
+            if (p.Header.Type == 0 && mouseRegistered && copied >= HeaderSize + 24) {
+                if (readMovement && (p.Data.MouseFlags & 1) == 0) { dx = p.Data.MouseX; dy = p.Data.MouseY; }
+                if (actionsEnabled && (p.Data.MouseButtons & 1) != 0) return Gesture.Punch;
+            }
+            if (p.Header.Type == 1 && actionsEnabled && p.Data.VirtualKey == 0x20)
             {
                 bool down = (p.Data.KeyFlags & 1) == 0;
                 bool first = down && !spaceDown;

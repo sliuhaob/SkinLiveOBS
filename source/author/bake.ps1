@@ -26,4 +26,4 @@ foreach($model in 'avatar','right-hand') {
     if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 }
 $outDir=[IO.Directory]::CreateDirectory($Output).FullName
-foreach($file in 'avatar.moc3','avatar.rig','right-hand.moc3','right-hand.rig','texture_00.png','preview.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}
+foreach($file in 'avatar.moc3','avatar.rig','right-hand.moc3','right-hand.rig','texture_00.png','preview.png','head-tracking.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}

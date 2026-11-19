@@ -1,15 +1,18 @@
-﻿空手模板制作说明
+﻿空手和右手持物模板制作说明
 
-Mesh.cs 描述史蒂夫比例的六个方块、双层皮肤、嘴部、相机投影和动作参数；SkinMap.cs 描述 MC 展开图到纹理图集的映射。
-OBS 窗口按同一套几何和动作公式绘制。导出的 Cubism 3.3 模型有 73 个网格（含透明覆盖层及嘴部），
-参数为 ParamMouthOpenY、ParamJump、ParamSwing。挥拳关键帧包含六个游戏刻的边界，并在转体较快处加密采样。
+Mesh.cs 描述史蒂夫比例的六个方块、双层皮肤、嘴部、相机投影和动作参数。SkinMap.cs 描述 MC 展开图到纹理图集的映射。
+OBS 窗口按同一套几何和动作公式绘制。导出的 Cubism 3.3 空手模板有 73 个网格（含覆盖层及嘴部）。
+持物模板额外使用 42 个网格。ItemMesh.cs 将像素贴图的正面、背面及轮廓边缘固定在右手关节上。
+两套模板都使用 ParamMouthOpenY、ParamJump、ParamSwing。挥动关键帧包含六个游戏刻的边界，并在转体较快处加密采样。
 换皮时只需生成新图集，所有皮肤都可复用随包原创模型结构。普通用户和常规 C# 编译均可直接使用 template 内的文件。
 
 如要修改后重新烘焙模板，可用 Windows PowerShell 5.1 运行本目录的 bake.ps1。
 参数 SkinPng 指向用于生成图集和静态预览的皮肤，Psd2LiveCheckout 指向下述固定提交的本地源代码，
 KotlinHome 指向 Kotlin/JVM 编译器目录，Output 指向保存新构建素材的目录。需要 java 命令。
-生成 avatar.moc3、avatar.rig、texture_00.png 和 preview.png。将新的 avatar.moc3 复制到
-source/template/Avatar.moc3，再运行 source/build.cmd。随模板生成的模型需与同一版本的 EXE 配套。
+输出包含两套 .moc3 和对应的 .rig、示例纹理 texture_00.png 和静态图 preview.png。
+将 avatar.moc3 复制到 source/template/Avatar.moc3 和 Models/Avatar/Avatar.moc3。
+将 right-hand.moc3 复制到 source/template/RightHand.moc3，再运行 source/build.cmd。
+构建通用模板只需要皮肤。木制物品的像素在用户选择物品时写入图集。
 
 模板的二进制编码在制作时使用 PSD2Live 的 umamo 模块，编码器将顶点、纹理坐标和参数写为 Cubism MOC3。
 制作脚本还会重新解析模型并逐项比较网格和关键帧。工具的运行包不依赖该编码器。

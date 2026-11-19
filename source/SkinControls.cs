@@ -7,7 +7,6 @@ namespace SkinLive
 {
     internal sealed partial class Studio
     {
-        Bitmap selectedAtlas;
         string selectedPath;
         Label skinLabel;
         ComboBox layoutBox;
@@ -33,7 +32,8 @@ namespace SkinLive
                 if(!string.IsNullOrEmpty(selectedPath) && selectedPath.EndsWith(".png",StringComparison.OrdinalIgnoreCase)) LoadAvatar(selectedPath);
             };
             var pair=Pair(64);pair.Controls.Add(LabelFor("贴图布局",uiFont,Theme.Muted),0,0);pair.Controls.Add(layoutBox,1,0);
-            Row(table,pair,33);Divider(table);
+            Row(table,pair,33);
+            HandControls(table);Divider(table);
         }
         void PrepareSkin(string arg)
         {
@@ -43,40 +43,51 @@ namespace SkinLive
                 string[] files=e.Data.GetData(DataFormats.FileDrop) as string[];if(files!=null&&files.Length>0)LoadAvatar(files[0]);
             };
             if(!string.IsNullOrEmpty(arg)){LoadAvatar(arg);return;}
-            if(File.Exists(prefs.LastSkin) && LoadAvatar(prefs.LastSkin))return;
+            if(File.Exists(prefs.LastSkin) && LoadAvatar(prefs.LastSkin,true))return;
             string bundled=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Models","Avatar",ModelFiles.Manifest);
-            if(File.Exists(bundled))LoadAvatar(bundled);
+            if(File.Exists(bundled))LoadAvatar(bundled,true);
         }
-        bool LoadAvatar(string file)
+        bool LoadAvatar(string file,bool restore=false)
         {
             Bitmap next=null;
             try {
                 file=Path.GetFullPath(file);string label;
-                if(file.EndsWith(".model3.json",StringComparison.OrdinalIgnoreCase)) {
-                    next=ModelFiles.OpenExport(file);label=Path.GetFileName(Path.GetDirectoryName(file))+" · 已转换模型";
+                HandItem embedded=VanillaItems.Empty;
+                bool model=file.EndsWith(".model3.json",StringComparison.OrdinalIgnoreCase);
+                if(model) {
+                    next=ModelFiles.OpenExport(file,out embedded);label=Path.GetFileName(Path.GetDirectoryName(file))+" · 已转换模型";
                 }
                 else if(file.EndsWith(".png",StringComparison.OrdinalIgnoreCase)) {
                     bool slim;next=SkinMap.ConvertPng(file,prefs.ArmLayout,out slim);
                     label=Path.GetFileNameWithoutExtension(file)+(slim?" · 细臂贴图":" · 宽臂贴图");
                 } else throw new InvalidDataException("请选择 PNG 皮肤，或本工具导出的 .model3.json。");
-                raster.SetAtlas(next);
-                Bitmap previous=selectedAtlas;selectedAtlas=next;next=null;
-                if(previous!=null)previous.Dispose();
+                if(embedded!=VanillaItems.Empty)sprites[embedded]=ItemMesh.ReadSprite(next);
+                HandItem choice=model&&!restore?embedded:(VanillaItems.Find(prefs.ItemId)??embedded);
+                int[] sprite;bool missing=false;
+                try { sprite=SpriteFor(choice); }
+                catch(FileNotFoundException){choice=embedded;sprite=SpriteFor(embedded);missing=true;}
+                raster.SetAtlas(next);raster.SetItem(sprite);
+                equipped=choice;
+                wanted=missing?VanillaItems.Find(prefs.ItemId):null;
+                if(!missing)prefs.ItemId=choice.Id;
+                ShowHand(choice);handBox.Enabled=!installing;
                 selectedPath=file;prefs.LastSkin=file;skinLabel.Text=label;tip.SetToolTip(skinLabel,label);
-                exportModel.Enabled=true;Message("皮肤已载入 · "+label,false);return true;
+                exportModel.Enabled=true;
+                Message(missing?"皮肤已载入 · 点「获取原版贴图」以恢复上次的右手物品。":"皮肤已载入 · "+label,missing);return true;
             } catch(Exception ex){Message("载入失败 · "+ex.Message,true);return false;}
             finally{if(next!=null)next.Dispose();}
         }
         void ExportAvatar()
         {
-            if(selectedAtlas==null)return;
+            if(selectedPath==null)return;
             using(var dialog=new FolderBrowserDialog {Description="选择保存位置，将在其中新建模型文件夹",ShowNewFolderButton=true}) {
                 if(dialog.ShowDialog(this)!=DialogResult.OK)return;
                 try {
                     string name=selectedPath.EndsWith(".png",StringComparison.OrdinalIgnoreCase)?Path.GetFileNameWithoutExtension(selectedPath):
                         Path.GetFileName(Path.GetDirectoryName(selectedPath));
                     string folder=ModelFiles.NewFolder(dialog.SelectedPath,name+"-Live2D");
-                    ModelFiles.Export(selectedAtlas,folder);Message("模型已保存 · "+folder,false);
+                    using(Bitmap atlas=raster.CopyAtlas())ModelFiles.Export(atlas,folder,equipped);
+                    Message("模型已保存 · "+folder,false);
                     MessageBox.Show(this,folder,"Live2D 模型已导出",MessageBoxButtons.OK,MessageBoxIcon.Information);
                 }catch(Exception ex){Message("导出失败 · "+ex.Message,true);}
             }

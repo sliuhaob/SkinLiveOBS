@@ -14,6 +14,7 @@ namespace SkinLive
         public int Gate = -48;
         public bool Keys = true, Bust = true, Blue;
         public string LastSkin = "";
+        public string ItemId;
         public int ArmLayout;
         public string Device = "";
         private static string FilePath
@@ -43,6 +44,7 @@ namespace SkinLive
                         case "blue": prefs.Blue = value == "1"; break;
                         case "device": prefs.Device = value; break;
                         case "skin": prefs.LastSkin = value; break;
+                        case "rightHand": prefs.ItemId = value; break;
                         case "layout": int index; if(int.TryParse(value,out index)) prefs.ArmLayout=Math.Max(0,Math.Min(2,index)); break;
                     }
                 }
@@ -59,7 +61,8 @@ namespace SkinLive
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 string temp = path + ".tmp";
                 File.WriteAllLines(temp, new string[] { "gate=" + Gate, "keys=" + (Keys ? "1" : "0"),
-                    "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout },
+                    "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout,
+                    "rightHand=" + ItemId },
                     new UTF8Encoding(false));
                 if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
             }
@@ -184,7 +187,7 @@ namespace SkinLive
             Label actionLabel = new Label { Text = "动作预览", AutoSize = true, ForeColor = Theme.Muted,
                 Margin = new Padding(0, 6, 12, 0) };
             actions.Controls.Add(actionLabel);
-            Button jump = ActionButton("跳跃", false), punch = ActionButton("挥拳", false);
+            Button jump = ActionButton("跳跃", false), punch = ActionButton("挥动", false);
             jump.Click += delegate { motion.Jump(Now); };
             punch.Click += delegate { motion.Punch(Now); };
             actions.Controls.Add(jump); actions.Controls.Add(punch);
@@ -265,7 +268,7 @@ namespace SkinLive
             keysOn = Toggle("在其他窗口也响应空格和鼠标左键");
             keysOn.CheckedChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
             Row(table, keysOn, 29);
-            Row(table, LabelFor("空格  跳跃     /     鼠标左键  挥拳", uiFont, Theme.Muted), 23);
+            Row(table, LabelFor("空格  跳跃     /     鼠标左键  挥动右手", uiFont, Theme.Muted), 23);
             Divider(table);
 
             Row(table, LabelFor("直播画面", sectionFont, Theme.Ink), 30);
@@ -430,7 +433,7 @@ namespace SkinLive
             bool previewVisible = WindowState != FormWindowState.Minimized;
             bool outputVisible = output != null && output.WindowState != FormWindowState.Minimized;
             if (!previewVisible && !outputVisible) return;
-            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20),motion.Mouth);
+            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20,equipped!=VanillaItems.Empty),motion.Mouth);
             if (previewVisible) preview.Invalidate();
             if (outputVisible) output.Invalidate();
         }
@@ -450,7 +453,6 @@ namespace SkinLive
             if (disposing)
             {
                 tick.Dispose(); microphone.Dispose(); tip.Dispose(); raster.Dispose();
-                if(selectedAtlas!=null)selectedAtlas.Dispose();
             }
             base.Dispose(disposing);
             if (disposing)

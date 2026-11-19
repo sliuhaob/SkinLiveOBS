@@ -36,6 +36,7 @@ namespace SkinLive
         }
         public static Rectangle Cell(int id)
         {
+            if (id>=ItemMesh.First) return ItemMesh.Tile(id-ItemMesh.First);
             int x=(id%9)*112+7, y=(id/9)*112+7;
             if (id==Mouth) return new Rectangle(x,y,24,12);
             SkinPart p=Parts[id/12];
@@ -79,7 +80,7 @@ namespace SkinLive
             }
             return true;
         }
-        static int Shade(int color,int percent)
+        internal static int Shade(int color,int percent)
         {
             return (color & unchecked((int)0xff000000)) |
                 Math.Min(255,((color>>16)&255)*percent/100)<<16 |

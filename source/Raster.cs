@@ -11,8 +11,11 @@ namespace SkinLive
         public readonly Bitmap Image=new Bitmap(Width,Height,PixelFormat.Format32bppArgb);
         readonly int[] pixels=new int[Width*Height];
         readonly float[] depth=new float[Width*Height];
-        readonly Face[] faces=Mesh.CreateFaces(), order=new Face[73];
-        readonly Rectangle[] tiles=new Rectangle[73];
+        readonly Face[] faces=Mesh.CreateFaces(), order=new Face[ItemMesh.First+ItemMesh.Count];
+        readonly Rectangle[] tiles=new Rectangle[ItemMesh.First+ItemMesh.Count];
+        static readonly System.Collections.Generic.IComparer<Face> byDepth=
+            System.Collections.Generic.Comparer<Face>.Create(Mesh.Compare);
+        bool hasItem;
         int[] texture;
         public double LiftPixels {get;private set;}
         public Raster(){for(int i=0;i<tiles.Length;i++)tiles[i]=SkinMap.Cell(i);}
@@ -20,16 +23,24 @@ namespace SkinLive
         {
             if(atlas.Width!=SkinMap.Size || atlas.Height!=SkinMap.Size)throw new ArgumentException("模型贴图必须是 1024×1024。");
             texture=SkinMap.Pixels(atlas);
+            hasItem=false;
         }
+        public void SetItem(int[] sprite)
+        {
+            ItemMesh.Paint(texture,sprite);
+            hasItem=sprite!=null;
+        }
+        public Bitmap CopyAtlas(){return SkinMap.ToBitmap(texture,SkinMap.Size,SkinMap.Size);}
         public void Draw(Pose p,double mouth)
         {
             LiftPixels=11.55*16*p.Lift;
             if(texture==null)return;
             Array.Clear(pixels,0,pixels.Length);
             for(int i=0;i<depth.Length;i++)depth[i]=float.MinValue;
-            Mesh.Evaluate(faces,p,mouth);
-            Array.Copy(faces,order,faces.Length); Array.Sort(order,Mesh.Compare);
-            foreach(Face f in order) if(f.Opacity>.001) DrawFace(f);
+            Mesh.Evaluate(faces,p,mouth,hasItem);
+            int count=hasItem?faces.Length:ItemMesh.First;
+            Array.Copy(faces,order,count); Array.Sort(order,0,count,byDepth);
+            for(int i=0;i<count;i++) if(order[i].Opacity>.001 && Math.Abs(order[i].Area)>.001) DrawFace(order[i]);
             BitmapData data=Image.LockBits(new Rectangle(0,0,Width,Height),ImageLockMode.WriteOnly,PixelFormat.Format32bppArgb);
             try { Marshal.Copy(pixels,0,data.Scan0,pixels.Length); } finally { Image.UnlockBits(data); }
         }

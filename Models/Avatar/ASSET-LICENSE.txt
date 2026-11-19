@@ -6,6 +6,11 @@ This notice covers the project's original files in source/template/, Models/Avat
 examples/, and docs/preview.png, and the application icon source/icon.ico.
 Artwork supplied by a user retains its original license.
 
+The optional Minecraft item textures belong to Mojang AB. When equipped, pixels
+from the selected item are included in the exported texture atlas. Mojang's
+terms apply to those pixels. The original PNGs are obtained separately:
+https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/LICENSE.md
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

@@ -24,7 +24,7 @@ namespace SkinLive
         {
             Bitmap image=raster.Image;
             if (area.Width < 1 || area.Height < 1) return Rectangle.Empty;
-            Rectangle source = bust ? new Rectangle(48, Math.Max(0, 199 - (int)(raster.LiftPixels*.82)), 352, 311) :
+            Rectangle source = bust ? new Rectangle(2, Math.Max(0, 190 - (int)(raster.LiftPixels*.82)), 400, 334) :
                 new Rectangle(0, 0, Raster.Width, Raster.Height);
             float scale = Math.Min((float)area.Width / source.Width, (float)area.Height / source.Height);
             int w = Math.Max(1, (int)Math.Round(source.Width * scale));
@@ -54,7 +54,7 @@ namespace SkinLive
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
             BackColor = Theme.Ink;
             TabStop = true;
-            AccessibleName = "角色预览，左键挥拳，空格跳跃";
+            AccessibleName = "角色预览，左键挥动右手，空格跳跃";
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -72,7 +72,7 @@ namespace SkinLive
             SpriteView.Paint(g, raster, ClientRectangle, Bust);
             int pad = Math.Max(10, cell / 2);
             using (SolidBrush mark = new SolidBrush(Theme.Gold)) g.FillRectangle(mark, pad, pad + 2, 3, nameFont.Height);
-            TextRenderer.DrawText(g, "空手皮肤", nameFont, new Point(pad + 9, pad), Color.FromArgb(242, 237, 216),
+            TextRenderer.DrawText(g, "角色预览", nameFont, new Point(pad + 9, pad), Color.FromArgb(242, 237, 216),
                 TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
             if (Focused) ControlPaint.DrawFocusRectangle(g, new Rectangle(2, 2, Width - 4, Height - 4));
         }

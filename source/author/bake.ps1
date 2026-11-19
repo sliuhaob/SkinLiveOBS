@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference='Stop'
 $work=[IO.Directory]::CreateDirectory((Join-Path ([IO.Path]::GetTempPath()) ('skinlive-art-'+[guid]::NewGuid().ToString('N')))).FullName
 $source=Split-Path -Parent $PSScriptRoot
-$drawing=@('SkinMap.cs','Mesh.cs','Raster.cs','author/BuildArt.cs') | ForEach-Object {(Get-Item -LiteralPath (Join-Path $source $_)).FullName}
+$drawing=@('SkinMap.cs','ItemMesh.cs','Mesh.cs','Raster.cs','author/BuildArt.cs') | ForEach-Object {(Get-Item -LiteralPath (Join-Path $source $_)).FullName}
 Add-Type -Path $drawing -ReferencedAssemblies 'System.dll','System.Drawing.dll','System.Core.dll'
 [SkinLive.BuildArt]::Write((Get-Item -LiteralPath $SkinPng).FullName,$work)
 $k=(Get-Item -LiteralPath $KotlinHome).FullName
@@ -21,7 +21,9 @@ $argFile=Join-Path $work 'kotlin.args'
 $compiler=Join-Path $work 'model-compiler.jar'
 & java -cp ($k+'/lib/*') org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -kotlin-home $k ('@'+$argFile) -d $compiler
 if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-& java -cp ($compiler+';'+$k+'/lib/kotlin-stdlib.jar') BakeRigKt (Join-Path $work 'avatar.rig') (Join-Path $work 'avatar.moc3')
-if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+foreach($model in 'avatar','right-hand') {
+    & java -cp ($compiler+';'+$k+'/lib/kotlin-stdlib.jar') BakeRigKt (Join-Path $work ($model+'.rig')) (Join-Path $work ($model+'.moc3'))
+    if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+}
 $outDir=[IO.Directory]::CreateDirectory($Output).FullName
-foreach($file in 'avatar.moc3','avatar.rig','texture_00.png','preview.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}
+foreach($file in 'avatar.moc3','avatar.rig','right-hand.moc3','right-hand.rig','texture_00.png','preview.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}

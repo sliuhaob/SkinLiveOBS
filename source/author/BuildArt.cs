@@ -11,7 +11,9 @@ namespace SkinLive
     {
         public static void Write(string png,string dest)
         {
-            Directory.CreateDirectory(dest);Mesh.WriteKeyShapes(Path.Combine(dest,"avatar.rig"));
+            Directory.CreateDirectory(dest);
+            Mesh.WriteKeyShapes(Path.Combine(dest,"avatar.rig"),false);
+            Mesh.WriteKeyShapes(Path.Combine(dest,"right-hand.rig"),true);
             bool slim;
             using(Bitmap atlas=SkinMap.ConvertPng(png,0,out slim)) using(Raster raster=new Raster()) {
                 atlas.Save(Path.Combine(dest,"texture_00.png"),ImageFormat.Png);raster.SetAtlas(atlas);

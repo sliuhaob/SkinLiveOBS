@@ -22,7 +22,7 @@ namespace SkinLive
             new Limb(5,2),new Limb(-1.9f,12),new Limb(1.9f,12)};
         public double Lift;
         public const double JumpPeak=1.25220335;
-        public static Pose Standard(double height,double swing,double age)
+        public static Pose Standard(double height,double swing,double age,bool holding=false)
         {
             Pose p=new Pose(); p.Lift=height;
             Limb arm=p.Joints[2], other=p.Joints[3];
@@ -32,7 +32,8 @@ namespace SkinLive
             other.X=-arm.X; other.Z=-arm.Z;
             double strike=Math.Sin((1-Math.Pow(1-swing,4))*Math.PI);
             double reach=Math.Sin(swing*Math.PI);
-            arm.Rx=(float)(-strike*1.2-.525*reach);
+            // Standing third-person ITEM pose pitches the holding arm forward by 18 degrees.
+            arm.Rx=(float)((holding?-Math.PI/10:0)-strike*1.2-.525*reach);
             arm.Ry=(float)(3*twist); other.Ry=(float)twist; other.Rx=(float)twist;
             double idleRoll=.05+.05*Math.Cos(age*.09), idlePitch=.05*Math.Sin(age*.067);
             arm.Rz=(float)(-.4*reach+idleRoll); other.Rz=(float)-idleRoll;
@@ -57,7 +58,7 @@ namespace SkinLive
         public static readonly string[] FaceNames={"Front","Right","Top","Back","Left","Bottom"};
         const double Yaw=.23562, Tilt=.105, Zoom=11.55;
         static readonly double cy=Math.Cos(Yaw), sy=Math.Sin(Yaw), ct=Math.Cos(Tilt), st=Math.Sin(Tilt);
-        struct Transform
+        internal struct Transform
         {
             public double cx,sx,cy,sy,cz,sz;
             public Transform(Limb p){cx=Math.Cos(p.Rx);sx=Math.Sin(p.Rx);cy=Math.Cos(p.Ry);sy=Math.Sin(p.Ry);cz=Math.Cos(p.Rz);sz=Math.Sin(p.Rz);}
@@ -71,13 +72,13 @@ namespace SkinLive
             }
         }
         public static Face[] CreateFaces()
-        { Face[] faces=new Face[73];for(int i=0;i<faces.Length;i++) faces[i]=new Face(i);return faces; }
+        { Face[] faces=new Face[ItemMesh.First+ItemMesh.Count];for(int i=0;i<faces.Length;i++) faces[i]=new Face(i);return faces; }
         static void Finish(Face f,double opacity)
         {
             f.Depth=(f.V[0].Z+f.V[1].Z+f.V[2].Z+f.V[3].Z)*.25;
             f.Opacity=f.Area>.001 ? opacity:0;
         }
-        public static void Evaluate(Face[] faces,Pose pose,double open)
+        public static void Evaluate(Face[] faces,Pose pose,double open,bool withItem)
         {
             Vec[] corners=new Vec[8];
             for(int part=0;part<6;part++) {
@@ -106,20 +107,23 @@ namespace SkinLive
                     Finish(m,open);
                 }
             }
+            if(withItem)ItemMesh.Evaluate(faces,pose);
         }
         // Offline authoring only. The encoder reads these exact native-player vertices.
-        public static void WriteKeyShapes(string path)
+        public static void WriteKeyShapes(string path,bool holding)
         {
             Face[] faces=CreateFaces();
+            if(!holding)Array.Resize(ref faces,ItemMesh.First);
             var rows=new StringBuilder[faces.Length];
             for(int id=0;id<rows.Length;id++) {
                 var r=SkinMap.Cell(id);
-                string name=id==72?"MouthInterior":SkinMap.Parts[id/12].Name+((id%12)<6?"Base":"Wear")+FaceNames[id%6];
+                string name=id>=ItemMesh.First?ItemMesh.Name(id-ItemMesh.First):
+                    id==SkinMap.Mouth?"MouthInterior":SkinMap.Parts[id/12].Name+((id%12)<6?"Base":"Wear")+FaceNames[id%6];
                 rows[id]=new StringBuilder(string.Join("\t",new[]{name,r.X.ToString(),r.Y.ToString(),r.Width.ToString(),r.Height.ToString()}));
             }
             SortedSet<double> keys=SwingKeys();
             foreach(double attack in keys) for(int jump=0;jump<=1;jump++) for(int mouth=0;mouth<=1;mouth++) {
-                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0),mouth);
+                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding),mouth,holding);
                 var sorted=(Face[])faces.Clone();Array.Sort(sorted,Compare);
                 for(int order=0;order<sorted.Length;order++) {
                     Face face=sorted[order];StringBuilder row=rows[face.Cell];row.Append('\t');

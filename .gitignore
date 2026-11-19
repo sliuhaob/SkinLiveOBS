@@ -1,0 +1,7 @@
+/SkinLiveOBS.exe
+/dist/
+*.pdb
+*.user
+.vs/
+bin/
+obj/

@@ -1,0 +1,27 @@
+{
+  "Version": 3,
+  "Parameters": [
+    {
+      "Id": "ParamMouthOpenY",
+      "GroupId": "",
+      "Name": "Mouth open"
+    },
+    {
+      "Id": "ParamJump",
+      "GroupId": "",
+      "Name": "Jump height"
+    },
+    {
+      "Id": "ParamSwing",
+      "GroupId": "",
+      "Name": "Empty-hand swing"
+    }
+  ],
+  "ParameterGroups": [],
+  "Parts": [
+    {
+      "Id": "PartAvatar",
+      "Name": "Player"
+    }
+  ]
+}

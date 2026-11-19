@@ -1,0 +1,31 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "Avatar.moc3",
+    "Textures": [
+      "Avatar.1024/texture_00.png"
+    ],
+    "DisplayInfo": "Avatar.cdi3.json",
+    "Motions": {
+      "Jump": [
+        {
+          "File": "Motions/Jump.motion3.json"
+        }
+      ],
+      "Swing": [
+        {
+          "File": "Motions/Swing.motion3.json"
+        }
+      ]
+    }
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": [
+        "ParamMouthOpenY"
+      ]
+    }
+  ]
+}

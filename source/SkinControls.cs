@@ -13,17 +13,16 @@ namespace SkinLive
         Button exportModel;
         void SkinControls(TableLayoutPanel table)
         {
-            Row(table,LabelFor("角色皮肤",sectionFont,Theme.Ink),30);
-            skinLabel=LabelFor("请选择皮肤 PNG",uiFont,Theme.Muted);Row(table,skinLabel,25);
-            var buttons=new FlowLayoutPanel {Dock=DockStyle.Fill,WrapContents=false,Margin=Padding.Empty};
+            Row(table,LabelFor("角色皮肤",sectionFont,Theme.Ink));
+            skinLabel=LabelFor("请选择皮肤 PNG",uiFont,Theme.Muted);Row(table,skinLabel);
             var pick=ActionButton("打开皮肤 / 模型",false);
             exportModel=ActionButton("导出 Live2D",false);exportModel.Enabled=false;
             pick.Click+=delegate {
                 using(var dlg=new OpenFileDialog {Title="打开 MC 皮肤或本工具导出的模型",Filter="皮肤或模型|*.png;*.model3.json|PNG 皮肤|*.png|Live2D 模型|*.model3.json",CheckFileExists=true})
                     if(dlg.ShowDialog(this)==DialogResult.OK)LoadAvatar(dlg.FileName);
             };
-            exportModel.Click+=delegate {ExportAvatar();};buttons.Controls.Add(pick);buttons.Controls.Add(exportModel);
-            Row(table,buttons,38);
+            exportModel.Click+=delegate {ExportAvatar();};
+            ButtonRow(table,pick,exportModel);
             layoutBox=Picker("PNG 手臂贴图布局");
             layoutBox.Items.AddRange(new object[]{"自动识别","宽臂贴图","细臂贴图"});
             layoutBox.SelectedIndex=prefs.ArmLayout;
@@ -31,8 +30,7 @@ namespace SkinLive
                 prefs.ArmLayout=layoutBox.SelectedIndex;
                 if(!string.IsNullOrEmpty(selectedPath) && selectedPath.EndsWith(".png",StringComparison.OrdinalIgnoreCase)) LoadAvatar(selectedPath);
             };
-            var pair=Pair(64);pair.Controls.Add(LabelFor("贴图布局",uiFont,Theme.Muted),0,0);pair.Controls.Add(layoutBox,1,0);
-            Row(table,pair,33);
+            LabeledRow(table,"贴图布局",layoutBox,Theme.Muted);
             HandControls(table);Divider(table);
         }
         void PrepareSkin(string arg)

@@ -18,8 +18,8 @@ namespace SkinLive
 
         void HandControls(TableLayoutPanel table)
         {
-            var row = Pair(64);
             handBox = Picker("角色右手物品");
+            ShowFullNames(handBox);
             handBox.Items.AddRange(VanillaItems.Choices);
             foreach (HandItem item in customItems.Items) handBox.Items.Add(item);
             handBox.SelectedItem = equipped;
@@ -35,11 +35,8 @@ namespace SkinLive
                 }
                 catch (Exception ex) { wanted = null; ShowHand(equipped); Message("切换失败 · " + ex.Message, true); }
             };
-            row.Controls.Add(LabelFor("右手物品", uiFont, Theme.Ink), 0, 0);
-            row.Controls.Add(handBox, 1, 0);
-            Row(table, row, 35);
+            LabeledRow(table, "右手物品", handBox, Theme.Ink);
 
-            var custom = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             addCustom = ActionButton("导入物品 PNG", false); editCustom = ActionButton("调整握点", false);
             addCustom.Enabled = editCustom.Enabled = false;
             tip.SetToolTip(addCustom, "导入一张物品 PNG，默认使用标准右手握姿。");
@@ -51,9 +48,8 @@ namespace SkinLive
                 }
             };
             editCustom.Click += delegate { EditItem(null, equipped); };
-            custom.Controls.Add(addCustom); custom.Controls.Add(editCustom); Row(table, custom, 34);
+            ButtonRow(table, addCustom, editCustom);
 
-            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             fetchItems = ActionButton("获取原版贴图", false);
             importItems = ActionButton("原版离线导入", false);
             tip.SetToolTip(fetchItems, "从 Mojang 官方样例获取五张木制物品贴图，缓存后可离线使用。");
@@ -65,8 +61,7 @@ namespace SkinLive
                     if (dlg.ShowDialog(this) == DialogResult.OK) await InstallItems(dlg.SelectedPath);
                 }
             };
-            actions.Controls.Add(fetchItems); actions.Controls.Add(importItems);
-            Row(table, actions, 33);
+            ButtonRow(table, fetchItems, importItems);
         }
 
         void ShowHand(HandItem item)

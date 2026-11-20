@@ -14,6 +14,8 @@
 4. 在 OBS 场景里添加「窗口采集」，选择 **[SkinLiveOBS.exe] 方块皮肤 · OBS 输出**。捕获方式选 **Windows 图形捕获（WGC）**，在部分 OBS 版本中显示为「Windows 10（1903 及以上）」。开启客户区域，关闭捕获光标。直播姬可在场景里添加「窗口捕获」，选择同一窗口和相应的 Windows 捕获方式。
 5. 给来源添加「色度键」，选与输出相同的绿幕或蓝幕。可从相似度 **250**、平滑度 **80**、溢色抑制 **60** 开始，按皮肤颜色微调。直播期间可以最小化控制台，保留独立输出窗口即可。来源列表里找不到窗口、隐形后出现黑屏或停帧时，取消「桌面隐形」，在采集软件中重新选中输出窗口。
 
+右侧设置栏会随控制台宽度调整。空间不足时，按钮和说明会换行，可以向下滚动查看其余设置。物品或录音设备的名称很长时，把鼠标停在选框上即可查看全名。
+
 B 站直播可沿用已有的 OBS 场景和推流设置。观众听到的声音由 OBS 的音频输入控制。[OBS 窗口采集说明](https://obsproject.com/kb/window-capture-sources) · [OBS 色度键说明](https://obsproject.com/kb/chroma-key-filter)
 
 ## 动作按键
@@ -112,7 +114,7 @@ B 站直播可沿用已有的 OBS 场景和推流设置。观众听到的声音�
 要从某个 Git 提交或标签制作包含程序、示例和对应源代码的 ZIP，可用 Windows PowerShell 运行打包脚本。压缩包写入 `dist`。
 
 ```powershell
-.\scripts\package.ps1 -Ref v1.4.0 -Version 1.4.0
+.\scripts\package.ps1 -Ref v1.4.1 -Version 1.4.1
 ```
 
 修改模型结构时，可按制作说明重新生成模板。离线建模步骤使用 PSD2Live 的 umamo 编码器，常规编译和运行直接使用随包模板。[模板制作说明](source/author/模板制作说明.txt) · [PSD2Live 上游](https://github.com/tsunehimatoi/psd2live/tree/4115821026419258e4a44a782a786c013f59ee5f/umamo)

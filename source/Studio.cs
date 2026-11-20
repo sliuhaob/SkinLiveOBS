@@ -149,7 +149,7 @@ namespace SkinLive
         {
             return new Label { Text = text, Font = font, ForeColor = color,
                 Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft,
-                UseMnemonic = false, AutoEllipsis = true, Margin = Padding.Empty };
+                UseMnemonic = false, AutoSize = true, Margin = Padding.Empty };
         }
         private static Button ActionButton(string text, bool primary)
         {
@@ -167,13 +167,25 @@ namespace SkinLive
         private static CheckBox Toggle(string text)
         {
             return new CheckBox { Text = text, Dock = DockStyle.Fill, Margin = Padding.Empty,
-                AutoSize = false, UseMnemonic = false, ForeColor = Theme.Ink };
+                AutoSize = true, UseMnemonic = false, ForeColor = Theme.Ink };
         }
         private static ComboBox Picker(string name)
         {
-            return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill,
-                AccessibleName = name, Margin = new Padding(0, 3, 0, 0),
+            return new ComboBox { AutoSize = true, DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                AccessibleName = name, Margin = new Padding(0, 1, 0, 1),
                 IntegralHeight = true, DropDownWidth = 245 };
+        }
+        private void ShowFullNames(ComboBox box)
+        {
+            box.SelectedIndexChanged += delegate { tip.SetToolTip(box, box.GetItemText(box.SelectedItem)); };
+            box.DropDown += delegate {
+                int width = box.Width;
+                foreach (object item in box.Items)
+                    width = Math.Max(width, TextRenderer.MeasureText(box.GetItemText(item), box.Font).Width
+                        + SystemInformation.VerticalScrollBarWidth + 8);
+                box.DropDownWidth = Math.Min(width, Screen.FromControl(box).WorkingArea.Width);
+            };
         }
         private void BuildLayout()
         {
@@ -181,23 +193,25 @@ namespace SkinLive
                 Dock = DockStyle.Fill, Padding = new Padding(16, 10, 16, 5), ColumnCount = 2,
                 RowCount = 3, Margin = Padding.Empty
             };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 324));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, Math.Max(31, uiFont.Height + 6)));
             Controls.Add(root);
 
-            root.Controls.Add(LabelFor("方块皮肤 · 直播控制台", headerFont, Theme.Ink), 0, 0);
+            var heading = LabelFor("方块皮肤 · 直播控制台", headerFont, Theme.Ink);
+            heading.MinimumSize = new Size(0, 54);
+            root.Controls.Add(heading, 0, 0);
             outputButton = ActionButton("打开直播窗口", true);
             outputButton.Anchor = AnchorStyles.Right;
             outputButton.Margin = new Padding(0, 0, 0, 0);
             outputButton.Click += delegate { ToggleOutput(); };
-            var outputActions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2,
-                RowCount = 1, Margin = Padding.Empty };
+            var outputActions = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
             outputActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             outputActions.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            outputActions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            outputActions.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             hideOutput = Toggle("桌面隐形");
             hideOutput.AccessibleName = "直播输出窗口在桌面隐形并穿透鼠标";
             tip.SetToolTip(hideOutput, "保留直播窗口供 WGC 窗口采集。取消勾选即可在桌面查看同一窗口。");
@@ -211,7 +225,7 @@ namespace SkinLive
             };
             scene.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             scene.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            scene.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            scene.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             preview = new Preview(raster, localActions) { Dock = DockStyle.Fill, Margin = Padding.Empty };
             scene.Controls.Add(preview, 0, 0);
             scene.Controls.Add(ActionPreviewButtons(), 0, 1);
@@ -219,13 +233,18 @@ namespace SkinLive
             root.Controls.Add(SettingsPanel(), 1, 1);
 
             status = LabelFor("准备就绪 · 麦克风已关闭", uiFont, Theme.Muted);
+            status.AutoSize = false; status.AutoEllipsis = true;
             status.AccessibleName = "运行状态";
             root.Controls.Add(status, 0, 2); root.SetColumnSpan(status, 2);
         }
-        private static void Row(TableLayoutPanel table, Control control, int height)
+        private static void Row(TableLayoutPanel table, Control control, int height = 0)
         {
             int row = table.RowCount++;
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+            if (height == 0) {
+                table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                Padding m = control.Margin;
+                control.Margin = new Padding(m.Left, m.Top + 2, m.Right, m.Bottom + 3);
+            } else table.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
             table.Controls.Add(control, 0, row);
         }
         private static void Divider(TableLayoutPanel table)
@@ -233,33 +252,55 @@ namespace SkinLive
             Panel line = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Line, Margin = new Padding(0, 8, 0, 8) };
             Row(table, line, 17);
         }
-        private static TableLayoutPanel Pair(int leftWidth)
+        private static TableLayoutPanel Pair(bool labelFirst)
         {
             TableLayoutPanel p = new TableLayoutPanel {
-                Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty
+                Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2, RowCount = 1, Margin = Padding.Empty
             };
-            p.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, leftWidth));
-            p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            p.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var fit = new ColumnStyle(SizeType.AutoSize);
+            var fill = new ColumnStyle(SizeType.Percent, 100);
+            p.ColumnStyles.Add(labelFirst ? fit : fill);
+            p.ColumnStyles.Add(labelFirst ? fill : fit);
+            p.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             return p;
+        }
+        private void LabeledRow(TableLayoutPanel table, string title, Control value, Color color)
+        {
+            var pair = Pair(true);
+            var label = LabelFor(title, uiFont, color);
+            label.Margin = new Padding(0, 0, 8, 0);
+            pair.Controls.Add(label, 0, 0);
+            pair.Controls.Add(value, 1, 0);
+            Row(table, pair);
+        }
+        private static void ButtonRow(TableLayoutPanel table, Button first, Button second)
+        {
+            var row = new FlowLayoutPanel {
+                Dock = DockStyle.Fill, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true, Margin = Padding.Empty
+            };
+            first.Margin = new Padding(0, 0, 6, 3);
+            second.Margin = new Padding(0, 0, 0, 3);
+            row.Controls.Add(first);
+            row.Controls.Add(second);
+            Row(table, row);
         }
         private Control SettingsPanel()
         {
             Panel scroll = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, AutoScroll = true,
-                BackColor = Theme.Card, Padding = new Padding(14, 9, 14, 8) };
+                BackColor = Theme.Card };
             TableLayoutPanel table = new TableLayoutPanel { ColumnCount = 1, RowCount = 0,
-                Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = Padding.Empty };
+                Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(14, 9, 14, 8), Margin = Padding.Empty };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             scroll.Controls.Add(table);
 
             SkinControls(table);
-            Row(table, LabelFor("语音嘴型", sectionFont, Theme.Ink), 31);
-            TableLayoutPanel deviceRow = new TableLayoutPanel { Dock = DockStyle.Fill,
-                RowCount = 1, ColumnCount = 2, Margin = Padding.Empty };
-            deviceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            deviceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 54));
-            deviceRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            Row(table, LabelFor("语音嘴型", sectionFont, Theme.Ink));
+            TableLayoutPanel deviceRow = Pair(false);
             deviceBox = Picker("选择麦克风");
+            ShowFullNames(deviceBox);
             deviceBox.SelectedIndexChanged += delegate {
                 if (syncing || !ready || deviceBox.SelectedItem == null) return;
                 prefs.Device = ((MicDevice)deviceBox.SelectedItem).Name;
@@ -267,41 +308,39 @@ namespace SkinLive
             };
             deviceRow.Controls.Add(deviceBox, 0, 0);
             Button refresh = ActionButton("刷新", false);
-            refresh.MinimumSize = Size.Empty; refresh.Padding = Padding.Empty;
-            refresh.Margin = new Padding(5, 2, 0, 3); refresh.Dock = DockStyle.Fill;
+            refresh.MinimumSize = Size.Empty; refresh.Padding = new Padding(6, 1, 6, 1);
+            refresh.Margin = new Padding(6, 0, 0, 0); refresh.Anchor = AnchorStyles.Right;
             refresh.Click += delegate { ReloadDevices(); if (micOn.Checked) ApplyMic(); };
             deviceRow.Controls.Add(refresh, 1, 0);
-            Row(table, deviceRow, 34);
+            Row(table, deviceRow);
             micOn = Toggle("启用麦克风");
             micOn.CheckedChanged += delegate { if (!syncing && ready) ApplyMic(); };
-            Row(table, micOn, 31);
+            Row(table, micOn);
             level = new LevelMeter { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 2) };
             Row(table, level, 18);
-            gateLabel = LabelFor("", uiFont, Theme.Muted); Row(table, gateLabel, 27);
+            gateLabel = LabelFor("", uiFont, Theme.Muted); Row(table, gateLabel);
             gate = new TrackBar { Dock = DockStyle.Fill, Minimum = -66, Maximum = -24,
                 LargeChange = 6, SmallChange = 1, TickStyle = TickStyle.None, AutoSize = false,
                 BackColor = Theme.Card, Margin = Padding.Empty, AccessibleName = "开口门限，分贝" };
             gate.ValueChanged += delegate { prefs.Gate = gate.Value; UpdateGate(); };
-            Row(table, gate, 26);
+            Row(table, gate, Math.Max(26, uiFont.Height + 4));
             tip.SetToolTip(gate, "安静时也动嘴就往右调；说话时不动就往左调。黑线表示门限。");
-            Row(table, LabelFor("误触往右调，轻声不开口往左调。", uiFont, Theme.Muted), 24);
+            Row(table, LabelFor("误触往右调，轻声不开口往左调。", uiFont, Theme.Muted));
             Divider(table);
 
-            Row(table, LabelFor("游戏动作", sectionFont, Theme.Ink), 29);
+            Row(table, LabelFor("游戏动作", sectionFont, Theme.Ink));
             keysOn = Toggle("在其他窗口也响应动作按键");
             keysOn.CheckedChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
-            Row(table, keysOn, 29);
+            Row(table, keysOn);
             AddBindingControls(table);
-            var lookRow = Pair(64);
             lookBox = Picker("头部跟随模式");
             lookBox.Items.AddRange(new object[] { "自动（桌面 / FPS）", "桌面鼠标", "FPS 鼠标", "关闭" });
             lookBox.SelectedIndexChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
-            lookRow.Controls.Add(LabelFor("头部跟随", uiFont, Theme.Muted), 0, 0);
-            lookRow.Controls.Add(lookBox, 1, 0); Row(table, lookRow, 35);
+            LabeledRow(table, "头部跟随", lookBox, Theme.Muted);
             tip.SetToolTip(lookBox, "桌面跟随指针位置。FPS 根据鼠标移动方向转头，松手后逐渐回正。");
             Divider(table);
 
-            Row(table, LabelFor("直播画面", sectionFont, Theme.Ink), 30);
+            Row(table, LabelFor("直播画面", sectionFont, Theme.Ink));
             shotBox = Picker("取景");
             shotBox.Items.AddRange(new object[] { "半身", "全身" });
             shotBox.SelectedIndexChanged += delegate {
@@ -309,18 +348,14 @@ namespace SkinLive
                 preview.Bust = prefs.Bust;
                 if (output != null) { output.Bust = prefs.Bust; output.Invalidate(); }
             };
-            TableLayoutPanel shot = Pair(55);
-            shot.Controls.Add(LabelFor("取景", uiFont, Theme.Muted), 0, 0); shot.Controls.Add(shotBox, 1, 0);
-            Row(table, shot, 33);
+            LabeledRow(table, "取景", shotBox, Theme.Muted);
             backgroundBox = Picker("直播背景色");
             backgroundBox.Items.AddRange(new object[] { "绿幕", "蓝幕" });
             backgroundBox.SelectedIndexChanged += delegate {
                 prefs.Blue = backgroundBox.SelectedIndex == 1;
                 if (output != null) output.SetBackdrop(prefs.Blue);
             };
-            TableLayoutPanel bg = Pair(55);
-            bg.Controls.Add(LabelFor("背景", uiFont, Theme.Muted), 0, 0); bg.Controls.Add(backgroundBox, 1, 0);
-            Row(table, bg, 33);
+            LabeledRow(table, "背景", backgroundBox, Theme.Muted);
             return scroll;
         }
         private void PopulateSavedSettings()

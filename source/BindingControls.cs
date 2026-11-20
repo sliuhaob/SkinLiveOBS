@@ -32,17 +32,16 @@ namespace SkinLive
         }
         Control ActionPreviewButtons()
         {
-            var row = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 1, ColumnCount = 4,
+            var row = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true,
                 Padding = new Padding(0, 6, 0, 2), Margin = Padding.Empty };
-            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             string[] labels = { "跳跃", "挥右手", "挥左手", "按住下蹲" };
             foreach (AvatarAction action in ActionBindings.Actions) {
                 int i = (int)action;
-                row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
                 Button b = ActionButton(labels[i], false);
-                b.Dock = DockStyle.Fill; b.AutoSize = false; b.MinimumSize = Size.Empty;
-                b.Padding = Padding.Empty; b.Margin = new Padding(0, 0, i == 3 ? 0 : 5, 0);
-                row.Controls.Add(b, i, 0);
+                b.MinimumSize = new Size(92, 30);
+                b.Margin = new Padding(0, 0, i == labels.Length - 1 ? 0 : 5, 3);
+                row.Controls.Add(b);
                 if (action != AvatarAction.Crouch) {
                     AvatarAction selected = action;
                     b.Click += delegate { StartAction(selected); };
@@ -60,22 +59,20 @@ namespace SkinLive
         void AddBindingControls(TableLayoutPanel table)
         {
             foreach (AvatarAction action in ActionBindings.Actions) {
-                var row = Pair(108);
                 var b = ActionButton("", false);
-                b.Dock = DockStyle.Fill; b.AutoSize = false; b.MinimumSize = Size.Empty;
-                b.Padding = Padding.Empty; b.Margin = new Padding(0, 2, 0, 2);
+                b.Dock = DockStyle.Fill; b.Margin = Padding.Empty;
+                b.Padding = new Padding(3, 1, 3, 1);
                 b.AccessibleName = "设置" + ActionBindings.Name(action) + "按键";
                 tip.SetToolTip(b, "点击后按下新键。选择其他动作的按键会交换两项绑定。");
                 AvatarAction selected = action;
                 b.Click += delegate { EditBinding(selected); };
-                row.Controls.Add(LabelFor(ActionBindings.Name(action), uiFont, Theme.Ink), 0, 0);
-                row.Controls.Add(b, 1, 0); bindingButtons[(int)action] = b;
-                Row(table, row, 32);
+                bindingButtons[(int)action] = b;
+                LabeledRow(table, ActionBindings.Name(action), b, Theme.Ink);
             }
             var reset = ActionButton("恢复默认按键", false);
             reset.Anchor = AnchorStyles.Right; reset.Margin = new Padding(0, 2, 0, 3);
             reset.Click += delegate { prefs.Bindings.Reset(); SaveBindings("已恢复四个动作的默认按键"); };
-            Row(table, reset, 37);
+            Row(table, reset);
             ShowBindings();
         }
         void ShowBindings()

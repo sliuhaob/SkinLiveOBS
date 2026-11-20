@@ -34,9 +34,9 @@ namespace SkinLive
                 default: return new Rectangle(u+d+w,v,w,d);
             }
         }
-        public static Rectangle Cell(int id)
+        public static Rectangle Cell(int id, ItemMesh grid = null)
         {
-            if (id>=ItemMesh.First) return ItemMesh.Tile(id-ItemMesh.First);
+            if (id>=ItemMesh.First) return (grid ?? ItemMesh.Vanilla).Tile(id-ItemMesh.First);
             int x=(id%9)*112+7, y=(id/9)*112+7;
             if (id==Mouth) return new Rectangle(x,y,24,12);
             SkinPart p=Parts[id/12];
@@ -71,6 +71,16 @@ namespace SkinLive
         }
         static int Read32(byte[] h,int offset)
         { return (h[offset]<<24)|(h[offset+1]<<16)|(h[offset+2]<<8)|h[offset+3]; }
+        internal static Size ReadPngSize(Stream stream,string invalid)
+        {
+            byte[] header=new byte[24];
+            if(stream.Read(header,0,24)!=24 || header[0]!=137 || header[1]!=80 || header[2]!=78 || header[3]!=71 ||
+               header[4]!=13 || header[5]!=10 || header[6]!=26 || header[7]!=10 ||
+               Read32(header,8)!=13 || Read32(header,12)!=0x49484452)
+                throw new InvalidDataException(invalid);
+            stream.Position=0;
+            return new Size(Read32(header,16),Read32(header,20));
+        }
         static bool Slim(int[] source,int width,int factor)
         {
             foreach(Rectangle zone in new[]{new Rectangle(54,20,2,12),new Rectangle(46,52,2,12)}) {
@@ -95,14 +105,10 @@ namespace SkinLive
         public static Bitmap ConvertPng(string path,int layout,out bool slim)
         {
             using (FileStream stream=File.OpenRead(path)) {
-                byte[] header=new byte[24];
-                if(stream.Read(header,0,24)!=24 || header[0]!=137 || header[1]!=80 || header[2]!=78 || header[3]!=71 ||
-                   header[4]!=13 || header[5]!=10 || header[6]!=26 || header[7]!=10 || Read32(header,12)!=0x49484452)
-                    throw new InvalidDataException("请选择 Minecraft 的 PNG 展开皮肤图。");
-                int w=Read32(header,16), h=Read32(header,20);
+                Size size=ReadPngSize(stream,"请选择 Minecraft 的 PNG 展开皮肤图。");
+                int w=size.Width, h=size.Height;
                 if(w<64 || w>1024 || w%64!=0 || (h!=w && h*2!=w))
                     throw new InvalidDataException("支持 64×64、128×128 等 64 的整数倍方形展开图，以及旧版 2:1 皮肤，最大宽度 1024。");
-                stream.Position=0;
                 using (Bitmap input=new Bitmap(stream)) {
                     int k=w/64;
                     int[] src=Pixels(input), target=new int[Size*Size];

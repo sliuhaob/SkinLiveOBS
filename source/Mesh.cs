@@ -100,14 +100,14 @@ namespace SkinLive
                 return new Vec(224+Zoom*(Mesh.cy*xx-Mesh.sy*zz),375+Zoom*(ct*yy+st*depth),ct*depth-st*yy);
             }
         }
-        public static Face[] CreateFaces()
-        { Face[] faces=new Face[ItemMesh.First+ItemMesh.Count];for(int i=0;i<faces.Length;i++) faces[i]=new Face(i);return faces; }
+        public static Face[] CreateFaces(ItemMesh grid=null)
+        { Face[] faces=new Face[ItemMesh.First+(grid??ItemMesh.Vanilla).Count];for(int i=0;i<faces.Length;i++) faces[i]=new Face(i);return faces; }
         static void Finish(Face f,double opacity)
         {
             f.Depth=(f.V[0].Z+f.V[1].Z+f.V[2].Z+f.V[3].Z)*.25;
             f.Opacity=f.Area>.001 ? opacity:0;
         }
-        public static void Evaluate(Face[] faces,Pose pose,double open,bool withItem)
+        public static void Evaluate(Face[] faces,Pose pose,double open,bool withItem,ItemMesh grid=null)
         {
             Vec[] corners=new Vec[8];
             for(int part=0;part<6;part++) {
@@ -136,24 +136,25 @@ namespace SkinLive
                     Finish(m,open);
                 }
             }
-            if(withItem)ItemMesh.Evaluate(faces,pose);
+            if(withItem)(grid??ItemMesh.Vanilla).Evaluate(faces,pose);
         }
         // Offline authoring only. The encoder reads these exact native-player vertices.
-        public static void WriteKeyShapes(string path,bool holding)
+        public static void WriteKeyShapes(string path,bool holding,ItemMesh grid=null)
         {
-            Face[] faces=CreateFaces();
+            grid=grid??ItemMesh.Vanilla;
+            Face[] faces=CreateFaces(grid);
             if(!holding)Array.Resize(ref faces,ItemMesh.First);
             var rows=new StringBuilder[faces.Length];
             for(int id=0;id<rows.Length;id++) {
-                var r=SkinMap.Cell(id);
-                string name=id>=ItemMesh.First?ItemMesh.Name(id-ItemMesh.First):
+                var r=SkinMap.Cell(id,grid);
+                string name=id>=ItemMesh.First?grid.Name(id-ItemMesh.First):
                     id==SkinMap.Mouth?"MouthInterior":SkinMap.Parts[id/12].Name+((id%12)<6?"Base":"Wear")+FaceNames[id%6];
                 rows[id]=new StringBuilder(string.Join("\t",new[]{name,r.X.ToString(),r.Y.ToString(),r.Width.ToString(),r.Height.ToString()}));
             }
             SortedSet<double> keys=SwingKeys(holding);
             for(int crouch=0;crouch<=1;crouch++) foreach(double attack in keys)
             for(int jump=0;jump<=1;jump++) for(int mouth=0;mouth<=1;mouth++) {
-                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding,0,0,crouch),mouth,holding);
+                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding,0,0,crouch),mouth,holding,grid);
                 var sorted=(Face[])faces.Clone();Array.Sort(sorted,Compare);
                 for(int order=0;order<sorted.Length;order++) {
                     Face face=sorted[order];StringBuilder row=rows[face.Cell];row.Append('\t');
@@ -163,6 +164,8 @@ namespace SkinLive
             }
             using(StreamWriter w=new StreamWriter(path,false,new UTF8Encoding(false))) {
                 w.WriteLine("#swing\t"+string.Join(",",new List<double>(keys).ConvertAll(k=>k.ToString("R",CultureInfo.InvariantCulture)).ToArray()));
+                if(grid.TopMargin!=0 || grid.BottomMargin!=0)
+                    w.WriteLine(string.Format(CultureInfo.InvariantCulture,"#padding\t{0},{1}",grid.TopMargin,grid.BottomMargin));
                 foreach(var row in rows)w.WriteLine(row);
             }
         }

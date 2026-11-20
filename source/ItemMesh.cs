@@ -5,38 +5,65 @@ namespace SkinLive
 {
     // A generated Minecraft-style item is one texel thick. Both broad faces and
     // the exposed edges of the opaque pixels follow the same right-arm joint.
-    internal static class ItemMesh
+    internal sealed class ItemMesh
     {
-        internal const int First = SkinMap.Mouth + 1, Count = 8 + 2 * 17;
-        const int Pixels = 16, Scale = 6;
-        static readonly Rectangle surface = new Rectangle(119, 903, Pixels * Scale, Pixels * Scale);
+        internal const int First = SkinMap.Mouth + 1;
+        internal const int DefaultGripX = 3, DefaultGripY = 13, CanvasGrip = 23;
+        internal static readonly ItemMesh Vanilla = new ItemMesh(16, 0, 0);
+        internal static readonly ItemMesh Extended = new ItemMesh(48, DefaultGripX - CanvasGrip, DefaultGripY - CanvasGrip);
+        static readonly Rectangle surface = new Rectangle(119, 903, 96, 96);
+        internal readonly int Pixels;
+        readonly int Scale, originX, originY;
+        readonly int[] cutX, cutY;
+        readonly int patches, firstEdge;
+        internal int Count { get { return firstEdge + 2 * (Pixels + 1); } }
+        internal int TopMargin { get { return Pixels == 16 ? 0 : 40; } }
+        internal int BottomMargin { get { return Pixels == 16 ? 0 : 104; } }
 
-        static Rectangle Patch(int index)
+        ItemMesh(int pixels, int originX, int originY)
+        {
+            Pixels = pixels; Scale = 96 / pixels;
+            this.originX = originX; this.originY = originY;
+            // Keep the four original palm-area patches even when more canvas surrounds the fist.
+            cutX = pixels == 16 ? new[] { 0, 6, 16 } : new[] { 0, -originX, 6 - originX, 16 - originX, pixels };
+            cutY = pixels == 16 ? new[] { 0, 10, 16 } : new[] { 0, -originY, 10 - originY, 16 - originY, pixels };
+            patches = (cutX.Length - 1) * (cutY.Length - 1); firstEdge = 2 * patches;
+        }
+        internal static ItemMesh ForSprite(int[] sprite)
+        {
+            if (sprite == null || sprite.Length == 16 * 16) return Vanilla;
+            if (sprite.Length == Extended.Pixels * Extended.Pixels) return Extended;
+            throw new ArgumentException("手持物品的像素画布尺寸不正确。");
+        }
+
+        Rectangle Patch(int index)
         {
             // Separate the part inside the fist so the Live2D draw order can
             // place the grip behind the sleeve independently of the tool head.
-            int x = (index & 1) == 0 ? 0 : 6, y = (index & 2) == 0 ? 0 : 10;
-            return Rectangle.FromLTRB(x, y, x == 0 ? 6 : Pixels, y == 0 ? 10 : Pixels);
+            int x = index % (cutX.Length - 1), y = index / (cutX.Length - 1);
+            return Rectangle.FromLTRB(cutX[x], cutY[y], cutX[x + 1], cutY[y + 1]);
         }
 
-        internal static Rectangle Tile(int index)
+        internal Rectangle Tile(int index)
         {
-            if (index < 8) {
-                Rectangle p = Patch(index % 4);
+            if (index < firstEdge) {
+                Rectangle p = Patch(index % patches);
                 return new Rectangle(surface.X + p.X * Scale, surface.Y + p.Y * Scale,
                     p.Width * Scale, p.Height * Scale);
             }
-            int strip = index - 8;
-            return new Rectangle(strip < 17 ? 231 : 343, 903 + strip % 17 * 6, Pixels * Scale, 4);
+            int strip = index - firstEdge;
+            return new Rectangle(strip <= Pixels ? 231 : 343, 903 + strip % (Pixels + 1) * Scale,
+                surface.Width, Math.Max(1, Scale - 2));
         }
 
-        internal static string Name(int index)
+        internal string Name(int index)
         {
-            if (index < 8) return "RightItem" + (index < 4 ? "Front" : "Back") + index % 4;
-            return "RightItemEdge" + (index < 25 ? "Row" : "Column") + ((index - 8) % 17);
+            if (index < firstEdge) return "RightItem" + (index < patches ? "Front" : "Back") + index % patches;
+            int strip = index - firstEdge;
+            return "RightItemEdge" + (strip <= Pixels ? "Row" : "Column") + (strip % (Pixels + 1));
         }
 
-        internal static int[] ReadSprite(Bitmap atlas)
+        internal int[] ReadSprite(Bitmap atlas)
         {
             var pixels = new int[Pixels * Pixels];
             for (int y = 0; y < Pixels; y++)
@@ -53,10 +80,10 @@ namespace SkinLive
             return SkinMap.Shade(first ? before : after, first ? dark : light);
         }
 
-        internal static void Paint(int[] atlas, int[] sprite)
+        internal void Paint(int[] atlas, int[] sprite)
         {
             if (sprite != null && sprite.Length != Pixels * Pixels)
-                throw new ArgumentException("手持物品需要 16×16 的贴图。");
+                throw new ArgumentException("手持物品的像素画布尺寸不正确。");
             // These three slots are reserved for items, including texture gutters.
             for (int y = 896; y < 1008; y++)
                 Array.Clear(atlas, y * SkinMap.Size + 112, 336);
@@ -65,7 +92,7 @@ namespace SkinLive
                 for (int x = 0; x < surface.Width; x++)
                     atlas[(surface.Y + y) * SkinMap.Size + surface.X + x] = sprite[y / Scale * Pixels + x / Scale];
             for (int k = 0; k <= Pixels; k++) {
-                Rectangle row = Tile(8 + k), column = Tile(25 + k);
+                Rectangle row = Tile(firstEdge + k), column = Tile(firstEdge + Pixels + 1 + k);
                 for (int i = 0; i < Pixels; i++) {
                     int r = EdgeColor(k == 0 ? 0 : sprite[(k - 1) * Pixels + i],
                         k == Pixels ? 0 : sprite[k * Pixels + i], 92, 66);
@@ -88,8 +115,10 @@ namespace SkinLive
             readonly Mesh.Transform transform;
             readonly Limb arm;
             readonly double lift;
-            public Grip(Pose pose)
+            readonly int originX, originY;
+            public Grip(Pose pose, int originX, int originY)
             {
+                this.originX = originX; this.originY = originY;
                 arm = pose.Joints[2];
                 transform = new Mesh.Transform(arm);
                 lift = pose.RenderLift;
@@ -97,8 +126,8 @@ namespace SkinLive
             public Vec Point(double u, double v, double thickness)
             {
                 // Vanilla generated item: center the 16x16 sprite, with image V down.
-                double x = (u - 8) * DisplayScale;
-                double y = (8 - v) * DisplayScale;
+                double x = (u + originX - 8) * DisplayScale;
+                double y = (8 - (v + originY)) * DisplayScale;
                 double z = thickness * DisplayScale;
 
                 // handheld.json thirdperson_righthand in model pixels:
@@ -113,21 +142,40 @@ namespace SkinLive
             }
         }
 
-        internal static void Evaluate(Face[] faces, Pose pose)
+        internal Rectangle HandBounds(Pose pose, int[] sprite)
         {
-            var grip = new Grip(pose);
+            Limb arm = pose.Joints[2];
+            var armTransform = new Mesh.Transform(arm);
+            Vec shoulder = armTransform.Project(arm, -1, 0, 0, pose.RenderLift);
+            Vec wrist = armTransform.Project(arm, -1, 8, 0, pose.RenderLift);
+            double left = Math.Min(shoulder.X, wrist.X) - 24, right = Math.Max(shoulder.X, wrist.X) + 24;
+            double top = Math.Min(shoulder.Y, wrist.Y) - 24, bottom = Math.Max(shoulder.Y, wrist.Y) + 24;
+            var grip = new Grip(pose, originX, originY);
+            for (int i = 0; i < sprite.Length; i++) {
+                if ((uint)sprite[i] >> 24 == 0) continue;
+                Vec point = grip.Point(i % Pixels + .5, i / Pixels + .5, 0);
+                left = Math.Min(left, point.X); right = Math.Max(right, point.X);
+                top = Math.Min(top, point.Y); bottom = Math.Max(bottom, point.Y);
+            }
+            return Rectangle.FromLTRB((int)Math.Floor(left)-17, (int)Math.Floor(top)-17,
+                (int)Math.Ceiling(right)+17, (int)Math.Ceiling(bottom)+17);
+        }
+
+        internal void Evaluate(Face[] faces, Pose pose)
+        {
+            var grip = new Grip(pose, originX, originY);
             for (int i = 0; i < Count; i++) {
                 Face face = faces[First + i];
-                if (i < 8) {
-                    Rectangle p = Patch(i % 4);
-                    double n = i < 4 ? .5 : -.5;
+                if (i < firstEdge) {
+                    Rectangle p = Patch(i % patches);
+                    double n = i < patches ? .5 : -.5;
                     face.V[0] = grip.Point(p.Left, p.Top, n);
                     face.V[1] = grip.Point(p.Right, p.Top, n);
                     face.V[2] = grip.Point(p.Right, p.Bottom, n);
                     face.V[3] = grip.Point(p.Left, p.Bottom, n);
                 } else {
-                    int k = (i - 8) % 17;
-                    bool row = i < 25;
+                    int k = (i - firstEdge) % (Pixels + 1);
+                    bool row = i - firstEdge <= Pixels;
                     face.V[0] = grip.Point(row ? 0 : k, row ? k : 0, -.5);
                     face.V[1] = grip.Point(row ? Pixels : k, row ? k : Pixels, -.5);
                     face.V[2] = grip.Point(row ? Pixels : k, row ? k : Pixels, .5);

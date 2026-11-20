@@ -21,9 +21,9 @@ $argFile=Join-Path $work 'kotlin.args'
 $compiler=Join-Path $work 'model-compiler.jar'
 & java -cp ($k+'/lib/*') org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -kotlin-home $k ('@'+$argFile) -d $compiler
 if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-foreach($model in 'avatar','right-hand') {
+foreach($model in 'avatar','right-hand','custom-hand') {
     & java -cp ($compiler+';'+$k+'/lib/kotlin-stdlib.jar') BakeRigKt (Join-Path $work ($model+'.rig')) (Join-Path $work ($model+'.moc3'))
     if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 }
 $outDir=[IO.Directory]::CreateDirectory($Output).FullName
-foreach($file in 'avatar.moc3','avatar.rig','right-hand.moc3','right-hand.rig','texture_00.png','preview.png','head-tracking.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}
+foreach($file in 'avatar.moc3','avatar.rig','right-hand.moc3','right-hand.rig','custom-hand.moc3','custom-hand.rig','texture_00.png','preview.png','head-tracking.png'){Copy-Item -LiteralPath (Join-Path $work $file) -Destination (Join-Path $outDir $file)}

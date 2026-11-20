@@ -9,15 +9,16 @@ OBS 窗口按同一套几何和动作公式绘制。导出的 Cubism 3.3 空手�
 贴图坐标 (u, v) 对应模型坐标 (u, 16-v)，两面位于 z=7.5 和 8.5。五个定位点会在制作模板时自动校验。
 26.3 官方客户端版本清单 https://piston-meta.mojang.com/v1/packages/ead839cbccf0ddf013c3f935f2840080b5cb0d26/26.3.json
 下蹲使用 Java 26.3 宽臂玩家的躯干俯角、头肩和腿部关节偏移，并计入玩家渲染器整体向下两个模型像素的位移。全身画布底部为下蹲时的鞋底留出了空间。
-两套模板都使用 ParamMouthOpenY、ParamJump、ParamSwing 和 ParamCrouch。ParamSwing 从 0 到 1 挥右手，从 0 到 −1 挥左手。关键帧包含六个游戏刻的边界，并在转体较快处加密采样。ParamCrouch 为 0 时站立，为 1 时下蹲。模型保留两种姿势下的双手挥动、跳跃和开口组合。嘴型对网格与绘制顺序均无影响的面共用同一组关键帧。
+三套模板都使用 ParamMouthOpenY、ParamJump、ParamSwing 和 ParamCrouch。ParamSwing 从 0 到 1 挥右手，从 0 到 −1 挥左手。关键帧包含六个游戏刻的边界，并在转体较快处加密采样。ParamCrouch 为 0 时站立，为 1 时下蹲。模型保留两种姿势下的双手挥动、跳跃和开口组合。嘴型对网格与绘制顺序均无影响的面共用同一组关键帧。
 换皮时只需生成新图集，所有皮肤都可复用随包原创模型结构。普通用户和常规 C# 编译均可直接使用 template 内的文件。
 
 如要修改后重新烘焙模板，可用 Windows PowerShell 5.1 运行本目录的 bake.ps1。
 参数 SkinPng 指向用于生成图集和静态预览的皮肤，Psd2LiveCheckout 指向下述固定提交的本地源代码，
 KotlinHome 指向 Kotlin/JVM 编译器目录，Output 指向保存新构建素材的目录。需要 java 命令。
-输出包含两套 .moc3 和对应的 .rig、示例纹理 texture_00.png、静态图 preview.png 和头部朝向图 head-tracking.png。
+输出包含三套 .moc3 和对应的 .rig、示例纹理 texture_00.png、静态图 preview.png 和头部朝向图 head-tracking.png。
 将 avatar.moc3 复制到 source/template/Avatar.moc3 和 Models/Avatar/Avatar.moc3。
-将 right-hand.moc3 复制到 source/template/RightHand.moc3，再运行 source/build.cmd。
+将 right-hand.moc3 复制到 source/template/RightHand.moc3，将 custom-hand.moc3 复制到 source/template/CustomHand.moc3，再运行 source/build.cmd。
+标准握点使用 16×16 物品图从零起算的 (3, 13)，映射到右手掌内。自选握点和贴图旋转使用 48×48 画布，将选中像素中心放在 (23, 23) 像素中心。两种画布中握点的三维位置相同。扩展模板在掌心周围保留原有四块网格，画布外围为偏移与旋转留出空间。扩展模板的全身取景在上方增加 40 像素、下方增加 104 像素，以容纳从边缘握住的长物品。
 构建通用模板只需要皮肤。木制物品的像素在用户选择物品时写入图集。
 
 模板的二进制编码在制作时使用 PSD2Live 的 umamo 模块，编码器将顶点、纹理坐标和参数写为 Cubism MOC3。

@@ -11,7 +11,7 @@ namespace SkinLive
     internal static class ModelFiles
     {
         public const string Manifest="Avatar.model3.json", Texture="Avatar.1024/texture_00.png";
-        const string ItemSetting="SkinLiveOBS.item.txt";
+        const string ItemSetting="SkinLiveOBS.item.txt", CustomSetting="SkinLiveOBS.item.json";
         const string LegacyRig="86ED31C45489742F436CB6BF00749771C59834D03B81BF6050DD1F28039C0BD6";
         const string HeldRig110="B291210DF1906F326E0D50F790F2418A79987768D3D985B8BCD822BF63332C81";
         const string EmptyRig120="67468C868360B0BC9BEFB7E3B3FAEA1CA72D24A488374F8FFFAD8A7EBE98D8A9";
@@ -24,9 +24,13 @@ namespace SkinLive
             if(s==null)throw new InvalidDataException("内置模型数据缺失："+name);return s;
         }
         static void MakeDir(string path){Directory.CreateDirectory(Path.GetDirectoryName(path));}
-        static string RigHash(SHA256 hash,string resource)
+        static readonly Lazy<string> EmptyHash=new Lazy<string>(()=>RigHash("Avatar.moc3"));
+        static readonly Lazy<string> HeldHash=new Lazy<string>(()=>RigHash("RightHand.moc3"));
+        static readonly Lazy<string> ExtendedHash=new Lazy<string>(()=>RigHash("CustomHand.moc3"));
+        static string RigHash(string resource)
         {
-            using(Stream input=Asset(resource))return BitConverter.ToString(hash.ComputeHash(input)).Replace("-","");
+            using(SHA256 hash=SHA256.Create()) using(Stream input=Asset(resource))
+                return BitConverter.ToString(hash.ComputeHash(input)).Replace("-","");
         }
         public static void Export(Bitmap atlas,string destination,HandItem item)
         {
@@ -40,11 +44,14 @@ namespace SkinLive
             try {
                 foreach(string name in Assets) {
                     string target=Path.Combine(stage,name);MakeDir(target);
-                    string resource=name=="Avatar.moc3" && item!=VanillaItems.Empty?"RightHand.moc3":name;
+                    string resource=name;
+                    if(name=="Avatar.moc3" && item!=VanillaItems.Empty)
+                        resource=item.Design!=null && !item.Design.Standard?"CustomHand.moc3":"RightHand.moc3";
                     using(Stream input=Asset(resource)) using(FileStream output=File.Create(target)) input.CopyTo(output);
                 }
                 string tex=Path.Combine(stage,Texture);MakeDir(tex);atlas.Save(tex,ImageFormat.Png);
                 if(item!=VanillaItems.Empty)File.WriteAllText(Path.Combine(stage,ItemSetting),item.Id+Environment.NewLine);
+                if(item.Design!=null)item.Design.Write(Path.Combine(stage,CustomSetting));
                 Directory.Move(stage,path);
             } finally {if(Directory.Exists(stage))Directory.Delete(stage,true);}
         }
@@ -71,12 +78,21 @@ namespace SkinLive
             item=VanillaItems.Empty;
             using(SHA256 hash=SHA256.Create()) using(Stream actual=File.OpenRead(moc)) {
                 string digest=BitConverter.ToString(hash.ComputeHash(actual)).Replace("-","");
-                if(digest!=LegacyRig && digest!=EmptyRig120 && digest!=RigHash(hash,"Avatar.moc3")) {
-                    if(digest!=HeldRig110 && digest!=HeldRig120 && digest!=RigHash(hash,"RightHand.moc3"))
+                if(digest!=LegacyRig && digest!=EmptyRig120 && digest!=EmptyHash.Value) {
+                    bool standard=digest==HeldRig110 || digest==HeldRig120 || digest==HeldHash.Value;
+                    if(!standard && digest!=ExtendedHash.Value)
                         throw new InvalidDataException("请选择由本工具导出的方块人模型。");
                     string setting=Path.Combine(parent,ItemSetting);
-                    if(File.Exists(setting)) {
-                        item=VanillaItems.Find(File.ReadAllText(setting).Trim());
+                    string id=File.Exists(setting)?File.ReadAllText(setting).Trim():null;
+                    string custom=Path.Combine(parent,CustomSetting);
+                    if(File.Exists(custom)) {
+                        item=new HandItem(CustomItem.Read(custom));
+                        if(standard!=item.Design.Standard || (id!=null && id!=item.Id))
+                            throw new InvalidDataException("物品信息与模型不匹配，请使用同一份导出的完整文件夹。");
+                    } else if(!standard || (id!=null && id.StartsWith("custom:",StringComparison.Ordinal))) {
+                        throw new InvalidDataException("模型缺少自定义握点文件 SkinLiveOBS.item.json，请复制完整的模型文件夹。");
+                    } else if(id!=null) {
+                        item=VanillaItems.Find(id);
                         if(item==null)throw new InvalidDataException("模型使用了当前版本不支持的右手物品。");
                     }
                 }

@@ -24,8 +24,8 @@ namespace SkinLive
         {
             Bitmap image=raster.Image;
             if (area.Width < 1 || area.Height < 1) return Rectangle.Empty;
-            Rectangle source = bust ? new Rectangle(58, Math.Max(0, 202 - (int)(raster.LiftPixels*.95)), 332, 350) :
-                new Rectangle(0, 0, Raster.Width, Raster.Height);
+            Rectangle source = bust ? raster.ImageRegion(new Rectangle(58, Math.Max(0, 202 - (int)(raster.LiftPixels*.95)), 332, 350)) :
+                new Rectangle(Point.Empty, image.Size);
             float scale = Math.Min((float)area.Width / source.Width, (float)area.Height / source.Height);
             int w = Math.Max(1, (int)Math.Round(source.Width * scale));
             int h = Math.Max(1, (int)Math.Round(source.Height * scale));

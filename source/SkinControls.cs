@@ -61,19 +61,27 @@ namespace SkinLive
                     bool slim;next=SkinMap.ConvertPng(file,prefs.ArmLayout,out slim);
                     label=Path.GetFileNameWithoutExtension(file)+(slim?" · 细臂贴图":" · 宽臂贴图");
                 } else throw new InvalidDataException("请选择 PNG 皮肤，或本工具导出的 .model3.json。");
-                if(embedded!=VanillaItems.Empty)sprites[embedded]=ItemMesh.ReadSprite(next);
-                HandItem choice=model&&!restore?embedded:(VanillaItems.Find(prefs.ItemId)??embedded);
+                bool sessionOnly=false;
+                if(embedded.Design!=null) {
+                    try { embedded=customItems.Store(embedded,null); }
+                    catch(IOException) { sessionOnly=true; }
+                    catch(UnauthorizedAccessException) { sessionOnly=true; }
+                    HandItem listed=FindHand(embedded.Id);
+                    if(listed==null)handBox.Items.Add(embedded);else embedded=listed;
+                } else if(embedded!=VanillaItems.Empty)sprites[embedded]=ItemMesh.Vanilla.ReadSprite(next);
+                HandItem choice=model&&!restore?embedded:(FindHand(prefs.ItemId)??embedded);
                 int[] sprite;bool missing=false;
                 try { sprite=SpriteFor(choice); }
                 catch(FileNotFoundException){choice=embedded;sprite=SpriteFor(embedded);missing=true;}
                 raster.SetAtlas(next);raster.SetItem(sprite);
                 equipped=choice;
-                wanted=missing?VanillaItems.Find(prefs.ItemId):null;
+                wanted=missing?FindHand(prefs.ItemId):null;
                 if(!missing)prefs.ItemId=choice.Id;
-                ShowHand(choice);handBox.Enabled=!installing;
                 selectedPath=file;prefs.LastSkin=file;skinLabel.Text=label;tip.SetToolTip(skinLabel,label);
+                ShowHand(choice);
                 exportModel.Enabled=true;
-                Message(missing?"皮肤已载入 · 点「获取原版贴图」以恢复上次的右手物品。":"皮肤已载入 · "+label,missing);return true;
+                Message(sessionOnly?"模型已载入，内嵌物品本次可用，物品库暂时无法写入。":
+                    missing?"皮肤已载入 · 点「获取原版贴图」以恢复上次的右手物品。":"皮肤已载入 · "+label,missing||sessionOnly);return true;
             } catch(Exception ex){Message("载入失败 · "+ex.Message,true);return false;}
             finally{if(next!=null)next.Dispose();}
         }

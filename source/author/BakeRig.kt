@@ -13,11 +13,15 @@ fun main(args: Array<String>) {
     val rows = File(args[0]).readLines().filter { it.isNotBlank() }
     require(rows.first().startsWith("#swing\t"))
     val swingKeys = rows.first().substringAfter('\t').split(',').map { it.toFloat() }.toFloatArray()
+    val padding = rows[1].takeIf { it.startsWith("#padding\t") }?.substringAfter('\t')?.split(',')?.map { it.toFloat() }
+    require(padding == null || (padding.size == 2 && padding.all { it >= 0f }))
+    val topMargin = padding?.get(0) ?: 0f
+    val bottomMargin = padding?.get(1) ?: 0f
     val axes = listOf(KeyformAxis(0, floatArrayOf(0f,1f)), KeyformAxis(1, floatArrayOf(0f,1f)),
         KeyformAxis(2, swingKeys), KeyformAxis(3, floatArrayOf(0f,1f)))
     val binding = KeyformBinding(1, axes)
     val bodyBinding = KeyformBinding(2, axes.drop(1))
-    val meshes = rows.drop(1).map { row ->
+    val meshes = rows.drop(if (padding == null) 1 else 2).map { row ->
         val f = row.split('\t')
         require(f.size == 5 + binding.gridSize)
         val left = f[1].toFloat()/1024f
@@ -41,7 +45,7 @@ fun main(args: Array<String>) {
     }
     val root = Part("PartAvatar", -1, 0, floatArrayOf(0f))
     val group = RenderOrderGroup(meshes.indices.map { RenderOrderChild(0,it,0) })
-    val doc = MocDocument(MocVersion.V33, CanvasInfo(320f,224f,320f,448f,656f), params,
+    val doc = MocDocument(MocVersion.V33, CanvasInfo(320f,224f,320f+topMargin,448f,656f+topMargin+bottomMargin), params,
         mapOf(0 to KeyformBinding(0, emptyList()), 1 to binding, 2 to bodyBinding), listOf(root), emptyList(),
         meshes, emptyList(), listOf(group))
     val encoded = MocEncoder.bakeFresh(doc.version, doc)

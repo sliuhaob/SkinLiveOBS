@@ -138,6 +138,8 @@ namespace SkinLive
             Icon = appIcon;
             BuildLayout();
             PrepareSkin(path);
+            if(customItems.Unreadable!=0)
+                Message("物品库中有条目未能读取，可用「导入物品 PNG」重新添加。",true);
             ReloadDevices();
             PopulateSavedSettings();
             tick.Interval = 15;

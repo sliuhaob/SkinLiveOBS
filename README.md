@@ -1,6 +1,6 @@
 # SkinLiveOBS · 方块皮肤直播工具
 
-把一张 Minecraft 皮肤 PNG 变成 OBS 或哔哩哔哩直播姬可以采集的方块人。角色能随麦克风音量张嘴、跟着鼠标转头，也能用自定义按键跳跃、挥动左右手和下蹲。右手可以拿原版木制工具。程序在 Windows 本机处理角色和输入，无需安装 Minecraft 或 VTube Studio。
+把一张 Minecraft 皮肤 PNG 变成 OBS 或哔哩哔哩直播姬可以采集的方块人。角色能随麦克风音量张嘴、跟着鼠标转头，也能用自定义按键跳跃、挥动左右手和下蹲。右手可以拿原版木制工具，也可以导入自己的物品 PNG 并选择握点。程序在 Windows 本机处理角色和输入，无需安装 Minecraft 或 VTube Studio。
 
 **[下载 Windows 免安装版](https://github.com/sliuhaob/SkinLiveOBS/releases/latest)** · [下载示例皮肤 PNG](examples/lighthouse-keeper.png)
 
@@ -43,11 +43,24 @@ B 站直播可沿用已有的 OBS 场景和推流设置。观众听到的声音�
 
 ![原创示例皮肤向左、正视、向右和低头的静态对照](docs/head-tracking.png)
 
-## 更换右手物品
+## 导入自己的右手物品
+
+打开角色皮肤，点击「右手物品」下面的 **「导入物品 PNG」**，选择一张物品图。柄在左下、工具头在右上的标准 MC 工具可以直接点「保存并装备」。程序会沿用 Java 版宽臂角色的第三人称握姿。
+
+如果想让手握在别处，**在左侧贴图上点一下手柄**。右侧会显示当前角色的右手特写，可以切换待机、挥右手和下蹲。角度以所选像素为中心旋转，正数为顺时针。以后可在物品列表里选中它，再点「调整握点」。
+
+随包的原创画笔是竖着画的。在左侧点笔柄中段，或选像素 `(7, 12)`，再把角度设为 `45°`，即可得到下图的效果。[示例画笔 PNG](examples/paintbrush.png)
+
+![在画笔手柄上选定握点后，右手待机和挥动的效果](docs/item-grip.png)
+
+- 输入支持长方形和正方形 PNG，单边最多 2048 像素。工具按比例缩放并用透明像素补成 16×16。透明背景最适合像素物品，图片中原有的实色背景也会随物品显示。
+- 自定义物品保存在当前用户的 `%LOCALAPPDATA%\SkinLiveOBS\custom-items`，下次打开可直接选择。导出的模型同时包含显示用的图集和可编辑的握点文件 `SkinLiveOBS.item.json`。把整个模型文件夹发给别人，对方可直接显示该物品，也能在本工具里继续调整握点。
+
+## 使用原版木制工具
 
 1. 在控制台点一次「获取原版贴图」。程序从 Mojang 官方样例仓库下载五张 16×16 PNG 并校验 SHA-256。同一 Windows 用户之后可以断网使用。
 2. 在「右手物品」里选 **空手、木剑、木镐、木斧、木锹（木铲）或木锄**。直播中切换会直接反映在 OBS 输出里。五件工具都使用 Java 原版史蒂夫宽臂模型的第三人称右手握姿，随手臂挥动、随身体起跳。
-3. 在离线电脑上，可把下表的五个原始 PNG 放进同一文件夹，点「离线导入」并选中该文件夹。工具只读取你选定的贴图文件夹和自己的物品缓存。文件可从固定版本的官方目录获取。[Mojang 原版贴图目录](https://github.com/Mojang/bedrock-samples/tree/15701fa9c13923f12662984c32c124327e40e3d3/resource_pack/textures/items)
+3. 在离线电脑上，可把下表的五个原始 PNG 放进同一文件夹，点「原版离线导入」并选中该文件夹。文件可从固定版本的官方目录获取。[Mojang 原版贴图目录](https://github.com/Mojang/bedrock-samples/tree/15701fa9c13923f12662984c32c124327e40e3d3/resource_pack/textures/items)
 
 | 物品 | 官方文件名 | 命令行 ID |
 | --- | --- | --- |
@@ -82,6 +95,12 @@ B 站直播可沿用已有的 OBS 场景和推流设置。观众听到的声音�
 .\SkinLiveOBS.exe --convert ".\examples\lighthouse-keeper.png" ".\shovel-model" auto minecraft:wooden_shovel
 ```
 
+也可以传入物品 PNG，后面的握点 X、Y 和角度均可省略。坐标从左上角的 `(0, 0)` 到右下角的 `(15, 15)`。只提供握点时，角度为 0°。
+
+```powershell
+.\SkinLiveOBS.exe --convert ".\examples\lighthouse-keeper.png" ".\brush-model" auto ".\examples\paintbrush.png" 7 12 45
+```
+
 ## 从源码编译
 
 在 Windows 10 或 11 上使用 .NET Framework 4.x 桌面组件和系统 C# 编译器。仓库已包含模型模板，在仓库根目录运行以下命令即可生成 `SkinLiveOBS.exe`。
@@ -93,13 +112,13 @@ B 站直播可沿用已有的 OBS 场景和推流设置。观众听到的声音�
 要从某个 Git 提交或标签制作包含程序、示例和对应源代码的 ZIP，可用 Windows PowerShell 运行打包脚本。压缩包写入 `dist`。
 
 ```powershell
-.\scripts\package.ps1 -Ref v1.3.0 -Version 1.3.0
+.\scripts\package.ps1 -Ref v1.4.0 -Version 1.4.0
 ```
 
 修改模型结构时，可按制作说明重新生成模板。离线建模步骤使用 PSD2Live 的 umamo 编码器，常规编译和运行直接使用随包模板。[模板制作说明](source/author/模板制作说明.txt) · [PSD2Live 上游](https://github.com/tsunehimatoi/psd2live/tree/4115821026419258e4a44a782a786c013f59ee5f/umamo)
 
 ## 许可
 
-程序源码和构建脚本采用 **GPL-3.0-only**。项目制作的空手和持物模型模板、图标、示例皮肤「灯塔值班员」及其图集和预览采用 **MIT** 许可。导出的模型文件夹随附模板许可，用户皮肤沿用各自授权。[程序许可](LICENSE) · [美术和模板许可](ASSET-LICENSE.txt)
+程序源码和构建脚本采用 **GPL-3.0-only**。项目制作的模型模板、图标、示例皮肤「灯塔值班员」、示例画笔及预览采用 **MIT** 许可。导出的模型随附模板许可，用户导入的皮肤和物品沿用各自的授权。[程序许可](LICENSE) · [美术和模板许可](ASSET-LICENSE.txt)
 
 五张原版物品贴图来自 Mojang 的 `bedrock-samples`，权利属于 Mojang。开源仓库和发行 ZIP 提供获取这些贴图的功能。导出持物模型时，所选物品的像素会写入图集，分享这类图集须遵守 Mojang 的条款。[Mojang 素材许可](https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/LICENSE.md) · [Minecraft 使用指南](https://www.minecraft.net/en-us/usage-guidelines)

@@ -12,9 +12,12 @@ namespace SkinLive
     internal sealed class HandItem
     {
         public readonly string Id, Label, FileName, Sha256;
+        public readonly CustomItem Design;
         internal HandItem(string id, string label, string fileName, string sha256)
         { Id = id; Label = label; FileName = fileName; Sha256 = sha256; }
-        public override string ToString() { return Label; }
+        internal HandItem(CustomItem design)
+        { Design = design; Id = design.Id; Label = design.Name; }
+        public override string ToString() { return Design == null ? Label : Label + "（自定义）"; }
     }
 
     internal static class VanillaItems

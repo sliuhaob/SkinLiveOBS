@@ -5,11 +5,18 @@ namespace SkinLive
     {
         double jumpStart=-10, swingStart=-10, last; bool gateOpen;
         const double TickRate=20, JumpSeconds=12/TickRate, SwingSeconds=6/TickRate;
-        public double Mouth,Height,Swing;
+        int swingDirection=1;
+        public double Mouth,Height,Swing,Crouch;
         public static double Clamp(double x){return Math.Max(0,Math.Min(1,x));}
         public void ClearQueue(){jumpStart=swingStart=-10;}
-        public void Jump(double now){if(now-jumpStart>=JumpSeconds)jumpStart=now;}
-        public void Punch(double now){if(now-swingStart>=SwingSeconds/2)swingStart=now;}
+        public void Start(AvatarAction action,double now)
+        {
+            if(action==AvatarAction.Jump && now-jumpStart>=JumpSeconds)jumpStart=now;
+            if((action==AvatarAction.RightSwing || action==AvatarAction.LeftSwing) && now-swingStart>=SwingSeconds/2) {
+                swingStart=now;
+                swingDirection=action==AvatarAction.RightSwing?1:-1;
+            }
+        }
         static double JumpHeight(double time)
         {
             double ticks=time*TickRate;
@@ -18,11 +25,12 @@ namespace SkinLive
             for(int i=0;i<full;i++){y+=velocity;velocity=(velocity-.08)*.98;}
             return y+(ticks-full)*(Math.Max(0,y+velocity)-y);
         }
-        public void Tick(double now,double db,int threshold,bool spaceHeld)
+        public void Tick(double now,double db,int threshold,bool jumpHeld,bool crouchHeld)
         {
             double dt=Math.Max(.001,Math.Min(.1,now-last));last=now;
-            if(spaceHeld && now-jumpStart>=JumpSeconds) jumpStart=now;
-            double s=(now-swingStart)/SwingSeconds;Swing=s>=0&&s<1?s:0;Height=JumpHeight(now-jumpStart);
+            if(jumpHeld && now-jumpStart>=JumpSeconds) jumpStart=now;
+            double s=(now-swingStart)/SwingSeconds;Swing=s>=0&&s<1?s*swingDirection:0;
+            Height=JumpHeight(now-jumpStart);Crouch=crouchHeld?1:0;
             gateOpen=db>threshold-(gateOpen?3:0);
             double target=gateOpen?Clamp((db-threshold+3)/23.0):0;
             Mouth+=(target-Mouth)*(1-Math.Exp(-(target>=Mouth?30:14)*dt));

@@ -7,10 +7,10 @@ using System.Threading;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("方块皮肤 · OBS")]
-[assembly: AssemblyDescription("PNG 皮肤转换、右手持物、鼠标转头与 OBS 直播窗口")]
+[assembly: AssemblyDescription("PNG 皮肤转换、自定义动作按键、双手挥动、下蹲与 OBS 直播窗口")]
 [assembly: AssemblyProduct("SkinLive OBS")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 [assembly: ComVisible(false)]
 
 namespace SkinLive

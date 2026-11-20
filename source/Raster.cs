@@ -7,7 +7,7 @@ namespace SkinLive
 {
     internal sealed class Raster : IDisposable
     {
-        public const int Width=448,Height=640;
+        public const int Width=448,Height=656;
         public readonly Bitmap Image=new Bitmap(Width,Height,PixelFormat.Format32bppArgb);
         readonly int[] pixels=new int[Width*Height];
         readonly float[] depth=new float[Width*Height];
@@ -33,7 +33,7 @@ namespace SkinLive
         public Bitmap CopyAtlas(){return SkinMap.ToBitmap(texture,SkinMap.Size,SkinMap.Size);}
         public void Draw(Pose p,double mouth)
         {
-            LiftPixels=Mesh.Zoom*16*p.Lift;
+            LiftPixels=Mesh.Zoom*16*p.JumpHeight;
             if(texture==null)return;
             Array.Clear(pixels,0,pixels.Length);
             for(int i=0;i<depth.Length;i++)depth[i]=float.MinValue;

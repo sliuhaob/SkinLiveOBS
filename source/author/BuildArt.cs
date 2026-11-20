@@ -22,16 +22,18 @@ namespace SkinLive
             // These fixed values catch reversed UVs, scale, grip offset and rotation order.
             var faces=Mesh.CreateFaces();
             foreach (var pose in new[] { Pose.Standard(0,0,0,true), Pose.Standard(0,1.0/3,19,true),
-                                         Pose.Standard(Pose.JumpPeak,2.0/3,7,true) }) {
+                                         Pose.Standard(Pose.JumpPeak,2.0/3,7,true),
+                                         Pose.Standard(0,-1.0/3,19,true,0,0,1),
+                                         Pose.Standard(Pose.JumpPeak,1.0/3,7,true,1,-1,1) }) {
                 Mesh.Evaluate(faces,pose,0,true);
                 Limb arm=pose.Joints[2];
                 var project=new Mesh.Transform(arm);
                 int first=ItemMesh.First;
-                CheckPoint(faces[first].V[0],project.Project(arm,-.575,18.97055367,-4.33008587,pose.Lift));
-                CheckPoint(faces[first+1].V[1],project.Project(arm,-.575,11.16991413,-15.47055367,pose.Lift));
-                CheckPoint(faces[first].V[2],project.Project(arm,-.575,9.08252147,-3.63236158,pose.Lift));
-                CheckPoint(faces[first+6].V[3],project.Project(arm,-1.425,7.83008587,3.47055367,pose.Lift));
-                CheckPoint(faces[first+8].V[0],project.Project(arm,-1.425,18.97055367,-4.33008587,pose.Lift));
+                CheckPoint(faces[first].V[0],project.Project(arm,-.575,18.97055367,-4.33008587,pose.RenderLift));
+                CheckPoint(faces[first+1].V[1],project.Project(arm,-.575,11.16991413,-15.47055367,pose.RenderLift));
+                CheckPoint(faces[first].V[2],project.Project(arm,-.575,9.08252147,-3.63236158,pose.RenderLift));
+                CheckPoint(faces[first+6].V[3],project.Project(arm,-1.425,7.83008587,3.47055367,pose.RenderLift));
+                CheckPoint(faces[first+8].V[0],project.Project(arm,-1.425,18.97055367,-4.33008587,pose.RenderLift));
             }
         }
         public static void WriteGazePreview(string png,string destination)

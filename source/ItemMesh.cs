@@ -92,7 +92,7 @@ namespace SkinLive
             {
                 arm = pose.Joints[2];
                 transform = new Mesh.Transform(arm);
-                lift = pose.Lift;
+                lift = pose.RenderLift;
             }
             public Vec Point(double u, double v, double thickness)
             {

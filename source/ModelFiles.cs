@@ -14,7 +14,10 @@ namespace SkinLive
         const string ItemSetting="SkinLiveOBS.item.txt";
         const string LegacyRig="86ED31C45489742F436CB6BF00749771C59834D03B81BF6050DD1F28039C0BD6";
         const string HeldRig110="B291210DF1906F326E0D50F790F2418A79987768D3D985B8BCD822BF63332C81";
-        static readonly string[] Assets={"Avatar.moc3",Manifest,"Avatar.cdi3.json","Motions/Jump.motion3.json","Motions/Swing.motion3.json","ASSET-LICENSE.txt"};
+        const string EmptyRig120="67468C868360B0BC9BEFB7E3B3FAEA1CA72D24A488374F8FFFAD8A7EBE98D8A9";
+        const string HeldRig120="DC45495D3F8E1443C01385A547FFF5D114CE70CCD01CF35E7EC5530EF8B1885C";
+        static readonly string[] Assets={"Avatar.moc3",Manifest,"Avatar.cdi3.json","Motions/Jump.motion3.json","Motions/Swing.motion3.json",
+            "Motions/SwingLeft.motion3.json","Motions/Crouch.motion3.json","ASSET-LICENSE.txt"};
         static Stream Asset(string name)
         {
             Stream s=typeof(ModelFiles).Assembly.GetManifestResourceStream("SkinLive."+name.Replace('/','.'));
@@ -68,8 +71,8 @@ namespace SkinLive
             item=VanillaItems.Empty;
             using(SHA256 hash=SHA256.Create()) using(Stream actual=File.OpenRead(moc)) {
                 string digest=BitConverter.ToString(hash.ComputeHash(actual)).Replace("-","");
-                if(digest!=LegacyRig && digest!=RigHash(hash,"Avatar.moc3")) {
-                    if(digest!=HeldRig110 && digest!=RigHash(hash,"RightHand.moc3"))
+                if(digest!=LegacyRig && digest!=EmptyRig120 && digest!=RigHash(hash,"Avatar.moc3")) {
+                    if(digest!=HeldRig110 && digest!=HeldRig120 && digest!=RigHash(hash,"RightHand.moc3"))
                         throw new InvalidDataException("请选择由本工具导出的方块人模型。");
                     string setting=Path.Combine(parent,ItemSetting);
                     if(File.Exists(setting)) {

@@ -16,6 +16,16 @@
         {
           "File": "Motions/Swing.motion3.json"
         }
+      ],
+      "SwingLeft": [
+        {
+          "File": "Motions/SwingLeft.motion3.json"
+        }
+      ],
+      "Crouch": [
+        {
+          "File": "Motions/Crouch.motion3.json"
+        }
       ]
     }
   },

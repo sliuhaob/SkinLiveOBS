@@ -6,16 +6,14 @@ using System.Text;
 
 namespace SkinLive
 {
-    internal enum Gesture { None, Jump, Punch }
-
     // Raw Input receives a second copy of hardware events while a game owns focus.
     // No hook, key suppression, synthetic input, or event history is used.
     internal sealed class GameInput
     {
         public const int WmInput = 0x00ff;
         private const uint InputSink = 0x0100, Remove = 1, RidInput = 0x10000003;
-        private bool actionsEnabled, mouseRegistered, readMovement, spaceDown;
-        public bool SpaceHeld {get{return actionsEnabled && spaceDown;}}
+        private bool actionsEnabled, mouseRegistered, readMovement;
+        public event Action<int, bool> ButtonChanged;
         public bool ActionsEnabled {get{return actionsEnabled;}}
 
         [StructLayout(LayoutKind.Sequential)]
@@ -26,6 +24,7 @@ namespace SkinLive
         private struct Body
         {
             [FieldOffset(0)] public ushort MouseFlags;
+            [FieldOffset(0)] public ushort MakeCode;
             [FieldOffset(2)] public ushort KeyFlags;
             [FieldOffset(4)] public ushort MouseButtons;
             [FieldOffset(6)] public ushort VirtualKey;
@@ -56,29 +55,36 @@ namespace SkinLive
             if (mouseNeeded != mouseRegistered) changes.Add(Registration(2, mouseNeeded, window));
             if (changes.Count != 0 && !RegisterRawInputDevices(changes.ToArray(), (uint)changes.Count, DeviceSize))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
-            if (actionsEnabled != actions) spaceDown = false;
             actionsEnabled = actions; mouseRegistered = mouseNeeded; readMovement = movement;
         }
-        public Gesture Read(IntPtr handle, out int dx, out int dy)
+        internal static void MouseChanges(ushort flags, Action<int, bool> change, bool swapped)
+        {
+            for (int i = 0; i < ActionBindings.MouseOrder.Length; i++) {
+                int down = 1 << (2 * i);
+                int button = swapped && i < 2 ? 1 - i : i;
+                int code = ActionBindings.MouseCode(ActionBindings.MouseOrder[button]);
+                if ((flags & down) != 0) change(code, true);
+                if ((flags & (down << 1)) != 0) change(code, false);
+            }
+        }
+        public void Read(IntPtr handle, out int dx, out int dy)
         {
             dx = dy = 0;
-            if (!mouseRegistered && !actionsEnabled) return Gesture.None;
+            if (!mouseRegistered && !actionsEnabled) return;
             Packet p;
             uint size = PacketSize;
             uint copied = GetRawInputData(handle, RidInput, out p, ref size, HeaderSize);
-            if (copied == uint.MaxValue || copied < HeaderSize + 8) return Gesture.None;
+            if (copied == uint.MaxValue || copied < HeaderSize + 8) return;
             if (p.Header.Type == 0 && mouseRegistered && copied >= HeaderSize + 24) {
                 if (readMovement && (p.Data.MouseFlags & 1) == 0) { dx = p.Data.MouseX; dy = p.Data.MouseY; }
-                if (actionsEnabled && (p.Data.MouseButtons & 1) != 0) return Gesture.Punch;
+                if (actionsEnabled && ButtonChanged != null && p.Data.MouseButtons != 0)
+                    MouseChanges(p.Data.MouseButtons, ButtonChanged, System.Windows.Forms.SystemInformation.MouseButtonsSwapped);
             }
-            if (p.Header.Type == 1 && actionsEnabled && p.Data.VirtualKey == 0x20)
-            {
-                bool down = (p.Data.KeyFlags & 1) == 0;
-                bool first = down && !spaceDown;
-                spaceDown = down;
-                if (first) return Gesture.Jump;
+            if (p.Header.Type == 1 && actionsEnabled && ButtonChanged != null &&
+                    p.Data.MakeCode != 0xff && p.Data.VirtualKey < 255) {
+                int code = ActionBindings.KeyboardCode(p.Data.VirtualKey, p.Data.MakeCode, (p.Data.KeyFlags & 2) != 0);
+                ButtonChanged(code, (p.Data.KeyFlags & 1) == 0);
             }
-            return Gesture.None;
         }
     }
 

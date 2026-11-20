@@ -14,7 +14,12 @@
     {
       "Id": "ParamSwing",
       "GroupId": "",
-      "Name": "Empty-hand swing"
+      "Name": "Swing phase (+right, -left)"
+    },
+    {
+      "Id": "ParamCrouch",
+      "GroupId": "",
+      "Name": "Crouch"
     }
   ],
   "ParameterGroups": [],

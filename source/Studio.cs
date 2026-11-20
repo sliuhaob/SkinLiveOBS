@@ -14,6 +14,7 @@ namespace SkinLive
         public int Gate = -48;
         public bool Keys = true, Bust = true, Blue, DesktopHidden = true;
         public LookMode Look = LookMode.Auto;
+        public readonly ActionBindings Bindings = new ActionBindings();
         public string LastSkin = "";
         public string ItemId;
         public int ArmLayout;
@@ -41,6 +42,7 @@ namespace SkinLive
                             if (int.TryParse(value, out n)) prefs.Gate = Math.Max(-66, Math.Min(-24, n));
                             break;
                         case "keys": prefs.Keys = value == "1"; break;
+                        case "bindings": prefs.Bindings.Load(value); break;
                         case "bust": prefs.Bust = value == "1"; break;
                         case "blue": prefs.Blue = value == "1"; break;
                         case "desktopHidden": prefs.DesktopHidden = value == "1"; break;
@@ -59,21 +61,29 @@ namespace SkinLive
             catch (UnauthorizedAccessException) { }
             return prefs;
         }
-        public void Save()
+        public bool Save()
         {
             try
             {
                 string path = FilePath;
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                string temp = path + ".tmp";
-                File.WriteAllLines(temp, new string[] { "gate=" + Gate, "keys=" + (Keys ? "1" : "0"),
-                    "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout,
-                    "rightHand=" + ItemId, "look=" + Look, "desktopHidden=" + (DesktopHidden ? "1" : "0") },
-                    new UTF8Encoding(false));
-                if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
+                string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try {
+                    File.WriteAllLines(temp, new string[] { "gate=" + Gate, "keys=" + (Keys ? "1" : "0"),
+                        "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout,
+                        "rightHand=" + ItemId, "look=" + Look, "desktopHidden=" + (DesktopHidden ? "1" : "0"),
+                        "bindings=" + Bindings.Serialize() },
+                        new UTF8Encoding(false));
+                    if (File.Exists(path)) File.Replace(temp, path, null);
+                    else {
+                        try { File.Move(temp, path); }
+                        catch (IOException) { if (!File.Exists(path)) throw; File.Replace(temp, path, null); }
+                    }
+                } finally { if (File.Exists(temp)) File.Delete(temp); }
+                return true;
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
         }
     }
 
@@ -84,6 +94,7 @@ namespace SkinLive
         private readonly Motion motion = new Motion();
         private readonly Raster raster = new Raster();
         private readonly GameInput gameInput = new GameInput();
+        private readonly ActionState localActions, backgroundActions;
         private readonly HeadTracking tracking = new HeadTracking();
         private readonly Microphone microphone = new Microphone();
         private readonly Timer tick = new Timer();
@@ -110,6 +121,11 @@ namespace SkinLive
 
         public Studio(string path)
         {
+            localActions = new ActionState(prefs.Bindings);
+            backgroundActions = new ActionState(prefs.Bindings);
+            localActions.Started += StartAction;
+            backgroundActions.Started += StartAction;
+            gameInput.ButtonChanged += BackgroundButton;
             Text = "方块皮肤 · 直播控制台";
             AutoScaleDimensions = new SizeF(96, 96);
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -194,22 +210,9 @@ namespace SkinLive
             scene.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             scene.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             scene.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            preview = new Preview(raster) { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            preview.JumpRequested += delegate { motion.Jump(Now); };
-            preview.PunchRequested += delegate { motion.Punch(Now); };
+            preview = new Preview(raster, localActions) { Dock = DockStyle.Fill, Margin = Padding.Empty };
             scene.Controls.Add(preview, 0, 0);
-            FlowLayoutPanel actions = new FlowLayoutPanel {
-                Dock = DockStyle.Fill, Margin = Padding.Empty, Padding = new Padding(2, 7, 0, 0),
-                WrapContents = false
-            };
-            Label actionLabel = new Label { Text = "动作预览", AutoSize = true, ForeColor = Theme.Muted,
-                Margin = new Padding(0, 6, 12, 0) };
-            actions.Controls.Add(actionLabel);
-            Button jump = ActionButton("跳跃", false), punch = ActionButton("挥动", false);
-            jump.Click += delegate { motion.Jump(Now); };
-            punch.Click += delegate { motion.Punch(Now); };
-            actions.Controls.Add(jump); actions.Controls.Add(punch);
-            scene.Controls.Add(actions, 0, 1);
+            scene.Controls.Add(ActionPreviewButtons(), 0, 1);
             root.Controls.Add(scene, 0, 1);
             root.Controls.Add(SettingsPanel(), 1, 1);
 
@@ -283,10 +286,10 @@ namespace SkinLive
             Divider(table);
 
             Row(table, LabelFor("游戏动作", sectionFont, Theme.Ink), 29);
-            keysOn = Toggle("在其他窗口也响应空格和鼠标左键");
+            keysOn = Toggle("在其他窗口也响应动作按键");
             keysOn.CheckedChanged += delegate { if (ready && !syncing) ApplyGameInput(); };
             Row(table, keysOn, 29);
-            Row(table, LabelFor("空格  跳跃     /     鼠标左键  挥动右手", uiFont, Theme.Muted), 23);
+            AddBindingControls(table);
             var lookRow = Pair(64);
             lookBox = Picker("头部跟随模式");
             lookBox.Items.AddRange(new object[] { "自动（桌面 / FPS）", "桌面鼠标", "FPS 鼠标", "关闭" });
@@ -386,7 +389,7 @@ namespace SkinLive
             try
             {
                 gameInput.Configure(Handle, keysOn.Checked, mode == LookMode.Auto || mode == LookMode.Fps);
-                if (prefs.Keys != keysOn.Checked) motion.ClearQueue();
+                if (prefs.Keys != keysOn.Checked) { backgroundActions.Clear(); motion.ClearQueue(); }
                 prefs.Keys = keysOn.Checked;
                 tracking.SetMode(mode); prefs.Look = mode;
             }
@@ -461,20 +464,8 @@ namespace SkinLive
             if (m.Msg == GameInput.WmInput && ready)
             {
                 int dx, dy;
-                Gesture gesture = gameInput.Read(m.LParam, out dx, out dy);
+                gameInput.Read(m.LParam, out dx, out dy);
                 if (dx != 0 || dy != 0) tracking.MoveMouse(dx, dy, Now);
-                // The control panel handles its own buttons and preview input locally.
-                // Windows continues delivering the original click/keypress to the game.
-                if (gesture != Gesture.None && keysOn.Checked)
-                {
-                    // GetActiveWindow is thread-local. Check the actual desktop foreground
-                    // window so a background studio never mistakes a game for its own UI.
-                    if (!ControllerHasForeground())
-                    {
-                        if (gesture == Gesture.Jump) motion.Jump(Now);
-                        else motion.Punch(Now);
-                    }
-                }
             }
             base.WndProc(ref m);
         }
@@ -490,8 +481,12 @@ namespace SkinLive
             catch (InvalidOperationException ex) { MicError(ex); }
             if (microphone.Closing && now - lastCleanup > 1) { microphone.Stop(); lastCleanup = now; }
             level.SetLevel(db, prefs.Gate);
-            bool held=gameInput.SpaceHeld && !ControllerHasForeground();
-            motion.Tick(now, db, prefs.Gate, held || (preview.Focused && preview.SpaceHeld));
+            if (preview.Focused && !preview.Capture && localActions.HasPressed)
+                localActions.ReleaseMissingMouseButtons(Control.MouseButtons);
+            bool background = keysOn.Checked && !editingBindings && !ControllerHasForeground();
+            bool jumpHeld = localActions.Held(AvatarAction.Jump) || (background && backgroundActions.Held(AvatarAction.Jump));
+            bool crouchHeld = previewCrouch || localActions.Held(AvatarAction.Crouch) || (background && backgroundActions.Held(AvatarAction.Crouch));
+            motion.Tick(now, db, prefs.Gate, jumpHeld, crouchHeld);
             bool previewVisible = WindowState != FormWindowState.Minimized;
             bool outputVisible = output != null && output.WindowState != FormWindowState.Minimized;
             if (!previewVisible && !outputVisible) return;
@@ -502,7 +497,7 @@ namespace SkinLive
                 display = Screen.FromPoint(cursor).Bounds;
             }
             tracking.Update(now, cursor, display);
-            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20,equipped!=VanillaItems.Empty,tracking.X,tracking.Y),motion.Mouth);
+            raster.Draw(Pose.Standard(motion.Height,motion.Swing,now*20,equipped!=VanillaItems.Empty,tracking.X,tracking.Y,motion.Crouch),motion.Mouth);
             if (previewVisible) preview.Invalidate();
             if (outputVisible) {
                 output.Invalidate();

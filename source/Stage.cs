@@ -43,18 +43,15 @@ namespace SkinLive
         private readonly Raster raster;
         private readonly Font nameFont = new Font("Microsoft YaHei UI", 12, FontStyle.Bold);
         public bool Bust;
-        public event Action JumpRequested;
-        public event Action PunchRequested;
-        private bool spaceDown;
-        public bool SpaceHeld {get{return spaceDown;}}
-        public Preview(Raster raster)
+        readonly ActionState input;
+        public Preview(Raster raster, ActionState input)
         {
-            this.raster = raster;
+            this.raster = raster; this.input = input;
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
             BackColor = Theme.Ink;
-            TabStop = true;
-            AccessibleName = "角色预览，左键挥动右手，空格跳跃";
+            TabStop = true; ImeMode = ImeMode.Disable;
+            AccessibleName = "角色预览，可使用游戏动作中设置的按键";
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -79,27 +76,27 @@ namespace SkinLive
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            if (e.Button == MouseButtons.Left) { Focus(); if (PunchRequested != null) PunchRequested(); }
+            Focus(); input.Change(ActionBindings.MouseCode(e.Button), true);
         }
-        protected override bool IsInputKey(Keys keyData)
+        protected override void OnMouseUp(MouseEventArgs e)
         {
-            return (keyData & Keys.KeyCode) == Keys.Space || base.IsInputKey(keyData);
+            base.OnMouseUp(e);
+            input.Change(ActionBindings.MouseCode(e.Button), false);
         }
-        protected override void OnKeyDown(KeyEventArgs e)
+        bool HandleKey(ref Message m)
         {
-            base.OnKeyDown(e);
-            if (e.KeyCode == Keys.Space)
-            {
-                if (!spaceDown && JumpRequested != null) JumpRequested();
-                spaceDown = true; e.Handled = true;
-            }
+            int key; bool down;
+            return input != null && ActionBindings.KeyboardMessage(ref m, out key, out down) && input.Change(key, down);
         }
-        protected override void OnKeyUp(KeyEventArgs e)
+        public override bool PreProcessMessage(ref Message msg)
         {
-            if (e.KeyCode == Keys.Space) spaceDown = false;
-            base.OnKeyUp(e);
+            return HandleKey(ref msg) || base.PreProcessMessage(ref msg);
         }
-        protected override void OnLostFocus(EventArgs e) { spaceDown = false; base.OnLostFocus(e); }
+        protected override void WndProc(ref Message m)
+        {
+            if (!HandleKey(ref m)) base.WndProc(ref m);
+        }
+        protected override void OnLostFocus(EventArgs e) { input.Clear(); base.OnLostFocus(e); }
         protected override void Dispose(bool disposing)
         {
             if (disposing) nameFont.Dispose();

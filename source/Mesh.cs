@@ -20,7 +20,7 @@ namespace SkinLive
     {
         public readonly Limb[] Joints={new Limb(0,0),new Limb(0,0),new Limb(-5,2),
             new Limb(5,2),new Limb(-1.9f,12),new Limb(1.9f,12)};
-        public double Lift;
+        public double JumpHeight, RenderLift;
         public const double JumpPeak=1.25220335;
         const double AngleIndex=65536/(2*Math.PI);
         static float IndexedSine(double index)
@@ -30,27 +30,41 @@ namespace SkinLive
         }
         static float GameSin(float angle){return IndexedSine(angle*AngleIndex);}
         static float GameCos(float angle){return IndexedSine(angle*AngleIndex+16384);}
-        public static Pose Standard(double height,double swing,double age,bool holding=false,double lookX=0,double lookY=0)
+        // The signed swing phase selects the active hand. Positive is the original right-hand motion.
+        public static Pose Standard(double height,double swing,double age,bool holding=false,double lookX=0,double lookY=0,double crouch=0)
         {
-            Pose p=new Pose(); p.Lift=height;
+            Pose p=new Pose(); p.JumpHeight=height;
+            // AvatarRenderer lowers the crouching player by two model pixels in world space.
+            p.RenderLift=height-crouch*2/16;
             Limb head=p.Joints[0];
             head.Ry=(float)(-.40*lookX); head.Rx=(float)(.34*lookY);
             head.X=(float)(.45*lookX);
-            Limb arm=p.Joints[2], other=p.Joints[3];
+            Limb body=p.Joints[1], arm=p.Joints[2], other=p.Joints[3];
+            bool left=swing<0;
+            Limb striking=left?other:arm;
             const float pi=(float)Math.PI;
-            float progress=(float)swing, ticks=(float)age;
+            float progress=(float)Math.Abs(swing), ticks=(float)age, sneak=(float)crouch;
             float twist=GameSin((float)Math.Sqrt(progress)*(2*pi))*.2f;
-            p.Joints[1].Ry=twist;
+            if(left)twist=-twist;
+            body.Ry=twist;
             arm.X=-GameCos(twist)*5; arm.Z=GameSin(twist)*5;
             other.X=-arm.X; other.Z=-arm.Z;
             float remaining=1-progress; remaining*=remaining;
             float strike=GameSin((1-remaining*remaining)*pi);
             float reach=GameSin(progress*pi);
             // Standing third-person ITEM pose pitches the holding arm forward by 18 degrees.
-            arm.Rx=(holding?-pi/10:0)-(strike*1.2f+reach*.7f*.75f);
-            arm.Ry=twist+2*twist; other.Ry=twist; other.Rx=twist;
+            arm.Rx=holding?-pi/10:0;
+            arm.Ry=other.Ry=twist; other.Rx=twist;
+            striking.Rx-=strike*1.2f+reach*.7f*.75f;
+            striking.Ry+=2*twist;
+            striking.Rz=-.4f*reach;
+            // Java's wide-arm crouch pitches the torso and offsets each pivot in model pixels.
+            body.Rx=.5f*sneak; body.Y=3.2f*sneak; head.Y=4.2f*sneak;
+            arm.Y=other.Y=2+3.2f*sneak;
+            arm.Rx+=.4f*sneak; other.Rx+=.4f*sneak;
+            p.Joints[4].Z=p.Joints[5].Z=4*sneak;
             float idleRoll=.05f+GameCos(ticks*.09f)*.05f, idlePitch=GameSin(ticks*.067f)*.05f;
-            arm.Rz=-.4f*reach+idleRoll; other.Rz=-idleRoll;
+            arm.Rz+=idleRoll; other.Rz-=idleRoll;
             arm.Rx+=idlePitch; other.Rx-=idlePitch;
             return p;
         }
@@ -106,7 +120,7 @@ namespace SkinLive
                     double pad=layer*(part==0?.5:.25);
                     for(int j=0;j<8;j++) corners[j]=t.Project(limb,
                         (j&1)==0?x-pad:x+def.W+pad,(j&2)==0?y-pad:y+def.H+pad,
-                        (j&4)==0?z-pad:z+def.D+pad,pose.Lift);
+                        (j&4)==0?z-pad:z+def.D+pad,pose.RenderLift);
                     for(int n=0;n<6;n++) {
                         Face face=faces[part*12+layer*6+n];
                         for(int j=0;j<4;j++) face.V[j]=corners[Faces[n][j]];
@@ -117,8 +131,8 @@ namespace SkinLive
                     Face m=faces[SkinMap.Mouth]; double half=1.04+.13*open;
                     double upper=-2.18-.10*open, lower=upper+.035+1.04*open;
                     const double mz=-4.53;
-                    m.V[0]=t.Project(limb,-half,upper,mz,pose.Lift);m.V[1]=t.Project(limb,half,upper,mz,pose.Lift);
-                    m.V[2]=t.Project(limb,half,lower,mz,pose.Lift);m.V[3]=t.Project(limb,-half,lower,mz,pose.Lift);
+                    m.V[0]=t.Project(limb,-half,upper,mz,pose.RenderLift);m.V[1]=t.Project(limb,half,upper,mz,pose.RenderLift);
+                    m.V[2]=t.Project(limb,half,lower,mz,pose.RenderLift);m.V[3]=t.Project(limb,-half,lower,mz,pose.RenderLift);
                     Finish(m,open);
                 }
             }
@@ -137,8 +151,9 @@ namespace SkinLive
                 rows[id]=new StringBuilder(string.Join("\t",new[]{name,r.X.ToString(),r.Y.ToString(),r.Width.ToString(),r.Height.ToString()}));
             }
             SortedSet<double> keys=SwingKeys(holding);
-            foreach(double attack in keys) for(int jump=0;jump<=1;jump++) for(int mouth=0;mouth<=1;mouth++) {
-                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding),mouth,holding);
+            for(int crouch=0;crouch<=1;crouch++) foreach(double attack in keys)
+            for(int jump=0;jump<=1;jump++) for(int mouth=0;mouth<=1;mouth++) {
+                Evaluate(faces,Pose.Standard(jump*Pose.JumpPeak,attack,0,holding,0,0,crouch),mouth,holding);
                 var sorted=(Face[])faces.Clone();Array.Sort(sorted,Compare);
                 for(int order=0;order<sorted.Length;order++) {
                     Face face=sorted[order];StringBuilder row=rows[face.Cell];row.Append('\t');
@@ -165,6 +180,7 @@ namespace SkinLive
                 keys.Add(holding?phase*phase*phase:phase*phase);
             }
             for(int i=0;i<=6;i++)keys.Add(i/6.0);
+            foreach(double phase in new List<double>(keys))keys.Add(-phase);
             return keys;
         }
     }

@@ -25,11 +25,18 @@ namespace SkinLive
             for(int i=0;i<full;i++){y+=velocity;velocity=(velocity-.08)*.98;}
             return y+(ticks-full)*(Math.Max(0,y+velocity)-y);
         }
-        public void Tick(double now,double db,int threshold,bool jumpHeld,bool crouchHeld)
+        public void Tick(double now,double db,int threshold,bool jumpHeld,bool crouchHeld,bool repeatRightHeld=false)
         {
             double dt=Math.Max(.001,Math.Min(.1,now-last));last=now;
             if(jumpHeld && now-jumpStart>=JumpSeconds) jumpStart=now;
-            double s=(now-swingStart)/SwingSeconds;Swing=s>=0&&s<1?s*swingDirection:0;
+            double swingPhase = (now - swingStart) / SwingSeconds;
+            if (repeatRightHeld && swingPhase >= 1) {
+                // Keep the six-tick cadence even if a render frame arrives late.
+                swingPhase = swingStart < 0 ? 0 : swingPhase - Math.Floor(swingPhase);
+                swingStart = now - swingPhase * SwingSeconds;
+                swingDirection = 1;
+            }
+            Swing = swingPhase >= 0 && swingPhase < 1 ? swingPhase * swingDirection : 0;
             Height=JumpHeight(now-jumpStart);Crouch=crouchHeld?1:0;
             gateOpen=db>threshold-(gateOpen?3:0);
             double target=gateOpen?Clamp((db-threshold+3)/23.0):0;

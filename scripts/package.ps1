@@ -2,7 +2,7 @@
 param(
     [string]$Ref = 'HEAD',
     [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')]
-    [string]$Version = '1.4.1',
+    [string]$Version = '1.5.0',
     [string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'

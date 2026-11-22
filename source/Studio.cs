@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -43,6 +44,12 @@ namespace SkinLive
                             break;
                         case "keys": prefs.Keys = value == "1"; break;
                         case "bindings": prefs.Bindings.Load(value); break;
+                        case "repeatRight": prefs.Bindings.RepeatRightEnabled = value == "1"; break;
+                        case "repeatRightKey":
+                            int repeatKey;
+                            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out repeatKey) && ActionBindings.CanBind(repeatKey))
+                                prefs.Bindings.Assign(AvatarAction.RepeatRight, repeatKey);
+                            break;
                         case "bust": prefs.Bust = value == "1"; break;
                         case "blue": prefs.Blue = value == "1"; break;
                         case "desktopHidden": prefs.DesktopHidden = value == "1"; break;
@@ -72,7 +79,8 @@ namespace SkinLive
                     File.WriteAllLines(temp, new string[] { "gate=" + Gate, "keys=" + (Keys ? "1" : "0"),
                         "bust=" + (Bust ? "1" : "0"), "blue=" + (Blue ? "1" : "0"), "device=" + Device, "skin=" + LastSkin, "layout=" + ArmLayout,
                         "rightHand=" + ItemId, "look=" + Look, "desktopHidden=" + (DesktopHidden ? "1" : "0"),
-                        "bindings=" + Bindings.Serialize() },
+                        "bindings=" + Bindings.Serialize(), "repeatRight=" + (Bindings.RepeatRightEnabled ? "1" : "0"),
+                        "repeatRightKey=" + Bindings.KeyFor(AvatarAction.RepeatRight).ToString(CultureInfo.InvariantCulture) },
                         new UTF8Encoding(false));
                     if (File.Exists(path)) File.Replace(temp, path, null);
                     else {
@@ -523,7 +531,9 @@ namespace SkinLive
             bool background = keysOn.Checked && !editingBindings && !ControllerHasForeground();
             bool jumpHeld = localActions.Held(AvatarAction.Jump) || (background && backgroundActions.Held(AvatarAction.Jump));
             bool crouchHeld = previewCrouch || localActions.Held(AvatarAction.Crouch) || (background && backgroundActions.Held(AvatarAction.Crouch));
-            motion.Tick(now, db, prefs.Gate, jumpHeld, crouchHeld);
+            bool repeatRightHeld = prefs.Bindings.RepeatRightEnabled && !editingBindings &&
+                (previewRightHeld || localActions.Held(AvatarAction.RepeatRight) || (background && backgroundActions.Held(AvatarAction.RepeatRight)));
+            motion.Tick(now, db, prefs.Gate, jumpHeld, crouchHeld, repeatRightHeld);
             bool previewVisible = WindowState != FormWindowState.Minimized;
             bool outputVisible = output != null && output.WindowState != FormWindowState.Minimized;
             if (!previewVisible && !outputVisible) return;

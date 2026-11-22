@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("方块皮肤 · OBS")]
 [assembly: AssemblyDescription("PNG 皮肤和右手物品导入、握点设置、自定义动作与 OBS 直播窗口")]
 [assembly: AssemblyProduct("SkinLive OBS")]
-[assembly: AssemblyVersion("1.4.1.0")]
-[assembly: AssemblyFileVersion("1.4.1.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 [assembly: ComVisible(false)]
 
 namespace SkinLive

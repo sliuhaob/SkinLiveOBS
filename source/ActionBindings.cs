@@ -5,7 +5,7 @@ using System.Windows.Forms;
 
 namespace SkinLive
 {
-    internal enum AvatarAction { None = -1, Jump, RightSwing, LeftSwing, Crouch }
+    internal enum AvatarAction { None = -1, Jump, RightSwing, LeftSwing, Crouch, RepeatRight }
 
     internal sealed class ActionBindings
     {
@@ -16,12 +16,15 @@ namespace SkinLive
             MouseButtons.Left, MouseButtons.Right, MouseButtons.Middle, MouseButtons.XButton1, MouseButtons.XButton2
         };
         static readonly int[] Defaults = { (int)Keys.Space, (int)Keys.LButton, (int)Keys.RButton, (int)Keys.ControlKey };
-        static readonly string[] Names = { "跳跃", "右手挥动", "左手挥动", "下蹲（按住）" };
+        static readonly string[] Names = { "跳跃", "右手挥动", "左手挥动", "下蹲（按住）", "右手连挥" };
+        const int DefaultRepeatKey = (int)Keys.LButton;
         readonly int[] codes = (int[])Defaults.Clone();
+        int repeatKey = DefaultRepeatKey;
+        public bool RepeatRightEnabled { get; set; }
 
         public static string Name(AvatarAction action) { return Names[(int)action]; }
-        public int KeyFor(AvatarAction action) { return codes[(int)action]; }
-        public void Reset() { Array.Copy(Defaults, codes, codes.Length); }
+        public int KeyFor(AvatarAction action) { return action == AvatarAction.RepeatRight ? repeatKey : codes[(int)action]; }
+        public void Reset() { Array.Copy(Defaults, codes, codes.Length); repeatKey = DefaultRepeatKey; }
 
         public static int Canonical(int code)
         {
@@ -89,11 +92,17 @@ namespace SkinLive
         {
             return (AvatarAction)Array.IndexOf(codes, Canonical(physicalCode));
         }
+        public bool RepeatsRight(int physicalCode)
+        {
+            return RepeatRightEnabled && Canonical(physicalCode) == repeatKey;
+        }
         // Swapping allows users to exchange two defaults without clearing a third action.
         public AvatarAction Assign(AvatarAction action, int physicalCode)
         {
             int code = Canonical(physicalCode);
             if (!CanBind(code)) throw new ArgumentOutOfRangeException("physicalCode");
+            // The hold gesture can share a primary binding, including the default left click.
+            if (action == AvatarAction.RepeatRight) { repeatKey = code; return AvatarAction.None; }
             AvatarAction previous = Find(code);
             if (previous != AvatarAction.None) codes[(int)previous] = KeyFor(action);
             codes[(int)action] = code;
@@ -134,17 +143,26 @@ namespace SkinLive
         }
         public bool Held(AvatarAction action)
         {
-            int wanted = bindings.KeyFor(action);
+            return (action != AvatarAction.RepeatRight || bindings.RepeatRightEnabled) && HeldKey(bindings.KeyFor(action));
+        }
+        bool HeldKey(int wanted)
+        {
             foreach (int key in pressed) if (ActionBindings.Canonical(key) == wanted) return true;
             return false;
         }
         public bool Change(int physicalCode, bool down)
         {
             AvatarAction action = bindings.Find(physicalCode);
-            if (action == AvatarAction.None) return false;
-            if (!down) { pressed.Remove(physicalCode); return true; }
-            bool wasHeld = Held(action);
-            if (pressed.Add(physicalCode) && !wasHeld && Started != null) Started(action);
+            bool repeat = bindings.RepeatsRight(physicalCode);
+            if (!down) return pressed.Remove(physicalCode) || action != AvatarAction.None || repeat;
+            if (action == AvatarAction.None && !repeat) return false;
+            bool wasHeld = HeldKey(ActionBindings.Canonical(physicalCode));
+            if (pressed.Add(physicalCode) && !wasHeld && Started != null) {
+                if (action != AvatarAction.None) Started(action);
+                // A shared hand binding already began a swing. Let it finish before repeating.
+                if (repeat && action != AvatarAction.RightSwing && action != AvatarAction.LeftSwing)
+                    Started(AvatarAction.RightSwing);
+            }
             return true;
         }
     }
